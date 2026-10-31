@@ -35,33 +35,42 @@
       </div>
     </div>
 
-    <button id="btnBasket" class="btn gold"></button>
-    <button id="btnFood" class="btn gold"></button>
-    <div id="woodInfo"></div>
-    <div id="foodUps">
-      <button id="btnFoodTime" class="btn gold"></button>
-      <button id="btnFoodQuality" class="btn gold"></button>
+    <div id="leftDock">
+      <div id="leftPanel">
+        <div id="buttons">
+          <button id="btnUpgrades" class="btn gold">Upgrades <span id="upBadge" class="badge hidden"></span></button>
+          <button id="btnSound" class="btn round" aria-label="Toggle sound">&#9835;</button>
+          <button id="btnMenu" class="btn round" aria-label="Menu">&#9776;</button>
+        </div>
+        <button id="btnBasket" class="btn gold"></button>
+        <button id="btnFood" class="btn gold"></button>
+        <div id="woodInfo"></div>
+        <div id="foodUps">
+          <button id="btnFoodTime" class="btn gold"></button>
+          <button id="btnFoodQuality" class="btn gold"></button>
+        </div>
+        <div id="missionTracker"></div>
+      </div>
+      <button id="panelTab" aria-label="Show options" aria-expanded="false"><span id="panelArrow">&#9654;</span><i id="panelDot" class="hidden"></i></button>
     </div>
 
-    <div id="goal">
-      <div id="levelName"></div>
-      <div id="objective"></div>
-      <div id="roadmap"></div>
+    <div id="topDock">
+      <div id="topPanel">
+        <div id="goal">
+          <div id="levelName"></div>
+          <div id="objective"></div>
+          <div id="roadmap"></div>
+        </div>
+        <button id="playerBadge" class="btn">
+          <span id="playerLevel"></span>
+          <span class="xpbar"><i id="xpFill"></i></span>
+          <small id="xpText"></small>
+        </button>
+      </div>
+      <button id="topTab" aria-label="Show goal and player level" aria-expanded="false"><span id="topArrow">&#9660;</span></button>
     </div>
 
-    <button id="playerBadge" class="btn">
-      <span id="playerLevel"></span>
-      <span class="xpbar"><i id="xpFill"></i></span>
-      <small id="xpText"></small>
-    </button>
 
-    <div id="missionTracker"></div>
-
-    <div id="buttons">
-      <button id="btnUpgrades" class="btn gold">Upgrades <span id="upBadge" class="badge hidden"></span></button>
-      <button id="btnSound" class="btn round" aria-label="Toggle sound">&#9835;</button>
-      <button id="btnMenu" class="btn round" aria-label="Menu">&#9776;</button>
-    </div>
   </div>
 
   <aside id="missionPanel">
@@ -93,6 +102,17 @@
       <h2>Paused</h2>
       <button id="btnResume" class="btn big gold">Resume</button>
       <button id="btnReset" class="btn big danger">Reset all progress</button>
+    </div>
+  </section>
+
+  <section id="briefing" class="overlay hidden">
+    <canvas id="leapCanvas" width="1280" height="720"></canvas>
+    <div class="card">
+      <div id="briefKicker"></div>
+      <h2 id="briefTitle"></h2>
+      <p id="briefText"></p>
+      <ol id="briefList"></ol>
+      <button id="btnBrief" class="btn big gold">Start</button>
     </div>
   </section>
 
@@ -266,8 +286,10 @@
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
 <script src="js/missions.js"></script>
+<script src="js/sea.js"></script>
 <script src="js/art.js"></script>
 <script src="js/render.js"></script>
+<script src="js/leap.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 <script src="js/splash.js"></script>

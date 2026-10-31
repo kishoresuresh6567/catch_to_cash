@@ -402,6 +402,12 @@
     { skin: "#b97a4f", shirt: "#ffffff", pants: "#27384d", hair: "#b0442b", style: 0, scale: 0.98, apron: "#f29a2e" }
   ];
 
+  Art.cutterLooks = [
+    { skin: "#d9a06e", shirt: "#c23b3b", pants: "#3f4a35", hair: "#4a2b18", style: 0, scale: 1 },
+    { skin: "#8a5636", shirt: "#2f7a4a", pants: "#3f4a35", hair: "#2b1d14", style: 2, scale: 0.98 },
+    { skin: "#f6cfa8", shirt: "#d98a1f", pants: "#3f4a35", hair: "#b0442b", style: 1, scale: 1.02 }
+  ];
+
   /* ---------- buildings ---------- */
   Art.crate = function (c, x, y, fish, def, count) {
     Art.shadow(c, x, y + 4, 40, 9);
@@ -435,6 +441,27 @@
     c.textBaseline = "middle";
     c.fillText(text, x, y + 0.5);
     c.textBaseline = "alphabetic";
+  };
+
+  Art.upgradeArrow = function (c, x, y) {
+    c.fillStyle = "#1e7ff0";
+    c.strokeStyle = "#fff";
+    c.lineWidth = 3;
+    c.beginPath();
+    c.arc(x, y, 15, 0, Math.PI * 2);
+    c.fill();
+    c.stroke();
+    c.fillStyle = "#fff";
+    c.beginPath();
+    c.moveTo(x, y - 9);
+    c.lineTo(x + 8, y);
+    c.lineTo(x + 3, y);
+    c.lineTo(x + 3, y + 8);
+    c.lineTo(x - 3, y + 8);
+    c.lineTo(x - 3, y);
+    c.lineTo(x - 8, y);
+    c.closePath();
+    c.fill();
   };
 
   Art.stall = function (c, s, t, theme, stock, fishDefs, sellers, cartLv, cap) {
@@ -531,61 +558,6 @@
     c.textBaseline = "alphabetic";
     c.restore();
     if (stock.length) Art.badge(c, x + 92, y - 58, stock.length + "/" + cap);
-  };
-
-  Art.house = function (c, h, i, t, theme) {
-    const x = h.x, y = h.y;
-    const walls = ["#ffe6bf", "#cfe8ff", "#ffd1cf"];
-    const roofs = ["#c8553d", "#3d6fa8", "#5a8f55"];
-    const snowy = theme.weather === "snow";
-    Art.shadow(c, x, y + 3, 60, 10, 0.2);
-    c.fillStyle = "#8c5a3c";
-    c.fillRect(x + 22, y - 112, 13, 36);
-    c.fillStyle = walls[i % 3];
-    rr(c, x - 52, y - 66, 104, 68, 3);
-    c.fill();
-    c.fillStyle = "rgba(0,0,0,.07)";
-    c.fillRect(x + 22, y - 66, 30, 68);
-    c.fillStyle = roofs[i % 3];
-    c.beginPath();
-    c.moveTo(x - 64, y - 62);
-    c.lineTo(x, y - 112);
-    c.lineTo(x + 64, y - 62);
-    c.closePath();
-    c.fill();
-    if (snowy) {
-      c.fillStyle = "#fff";
-      c.beginPath();
-      c.moveTo(x - 38, y - 83);
-      c.lineTo(x, y - 112);
-      c.lineTo(x + 38, y - 83);
-      c.quadraticCurveTo(x + 16, y - 90, x + 6, y - 82);
-      c.quadraticCurveTo(x - 12, y - 92, x - 38, y - 83);
-      c.fill();
-    }
-    c.fillStyle = "#6e4426";
-    rr(c, x - 12, y - 38, 24, 40, 3);
-    c.fill();
-    c.fillStyle = "#ffd34d";
-    c.beginPath();
-    c.arc(x + 7, y - 16, 2, 0, Math.PI * 2);
-    c.fill();
-    const glow = 0.75 + 0.25 * Math.sin(t * 0.7 + i);
-    c.fillStyle = "rgba(255,226,130," + glow + ")";
-    c.fillRect(x - 42, y - 50, 20, 20);
-    c.fillRect(x + 22, y - 50, 20, 20);
-    c.strokeStyle = "#6e4426";
-    c.lineWidth = 2;
-    c.strokeRect(x - 42, y - 50, 20, 20);
-    c.strokeRect(x + 22, y - 50, 20, 20);
-    // Chimney smoke
-    for (let k = 0; k < 3; k++) {
-      const p = (t * 0.3 + k / 3 + i * 0.3) % 1;
-      c.fillStyle = "rgba(255,255,255," + 0.45 * (1 - p) + ")";
-      c.beginPath();
-      c.arc(x + 28 + Math.sin(p * 5) * 7, y - 114 - p * 34, 3 + p * 7, 0, Math.PI * 2);
-      c.fill();
-    }
   };
 
   // Crane on the shore. Its net hangs over the water and dips on each cycle.

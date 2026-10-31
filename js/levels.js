@@ -9,12 +9,12 @@
              The LAST build must have type "ship": paying it finishes the level.
    - `spot`: where the pad and the building go. See CTC.LAYOUT.spots below.
 
+   beltCosts: the price of each of the three belts in this place.
+
    Build types:
      rig      - net crane on the shore, drops fish in the crate automatically
      boat     - trawler that fishes at sea and unloads at the crate
-     chain    - conveyor that delivers crate fish to the market stall
      cashier  - hires a seller, so customers are served without you
-     home     - overhead chain that delivers stall fish to houses for a bonus
      ship     - ends the level
 
    Theme decor options: "palm", "coral", "pine".
@@ -25,23 +25,22 @@ window.CTC = window.CTC || {};
 CTC.LAYOUT = {
   width: 1280,
   height: 720,
-  start: { x: 650, y: 400 },
-  crate: { x: 640, y: 560 },
+  start: { x: 640, y: 470 },
+  crate: { x: 665, y: 385 },
   stall: { x: 940, y: 455 },
-  fire: { x: 665, y: 385 },
+  fire: { x: 640, y: 560 },
   shop: { x: 955, y: 650 },
   shopZone: { x: 862, y: 678, r: 62 },
   hotPad: { x: 830, y: 600 },
-  hotBeltPath: [[625, 398], [586, 398], [586, 632], [872, 632]],
+  hotBeltPath: [[640, 575], [640, 603], [640, 632], [872, 632]],
+  feedBeltPath: [[655, 395], [655, 450], [655, 508]],
   shopQueue: { x: 1050, y: 648, gap: 44, max: 5 },
   trees: [[715, 95], [1235, 300], [770, 682], [1215, 668], [1110, 610], [750, 330]],
   stallZone: { x: 895, y: 515, r: 80 },
   queue: { x: 1010, y: 510, gap: 50, max: 6 },
   pier: { x0: 250, x1: 530, y0: 332, y1: 388 },
   ship: { x: 165, y: 530 },
-  beltPath: [[668, 560], [760, 560], [760, 425], [858, 425]],
-  cable: { y: 205, x0: 835, x1: 1190, stallX: 1005, stallY: 305 },
-  houses: [{ x: 880, y: 165 }, { x: 1030, y: 160 }, { x: 1180, y: 168 }],
+  beltPath: [[703, 375], [775, 375], [775, 425], [858, 425]],
   spots: {
     rigA: { x: 560, y: 170 },
     rigB: { x: 560, y: 640 },
@@ -49,9 +48,7 @@ CTC.LAYOUT = {
     rigD: { x: 560, y: 480 },
     boatA: { x: 650, y: 280 },
     boatB: { x: 650, y: 660 },
-    chain: { x: 700, y: 465 },
     cashier: { x: 1085, y: 415 },
-    home: { x: 940, y: 275 },
     dock: { x: 290, y: 360 }
   }
 };
@@ -59,11 +56,18 @@ CTC.LAYOUT = {
 CTC.UPGRADES = [
   { id: "sellers", group: "cart", name: "More Sellers", desc: "Another seller: faster service, more customers", lockedText: "Hire your first seller on the pad", base: 150, growth: 2.5, max: 3, needs: ["cashier"] },
   { id: "cart", group: "cart", name: "Better Cart", desc: "Holds 15 more fish, all fish sell for 10% more", base: 100, growth: 2.6, max: 4 },
-  { id: "belt", group: "cart", name: "Faster Belt", desc: "Moves fish quicker and sends more per minute", lockedText: "Build the Delivery Chain first", base: 80, growth: 2.4, max: 4, needs: ["chain"] },
+  { id: "belt", group: "cart", name: "Faster Market Belt", desc: "Moves fish quicker and sends more per minute", lockedText: "Build the Catch to Fresh Fish Market belt first", base: 80, growth: 2.4, max: 4, needs: ["chain"] },
   { id: "hotSellers", group: "hot", name: "More Food Sellers", desc: "Another seller: faster service, more customers", lockedText: "Hire your first food seller on the pad", base: 150, growth: 2.5, max: 3, needs: ["hotSeller"] },
   { id: "hotCart", group: "hot", name: "Better Food Shop", desc: "Holds 10 more meals, cooked fish sell for 10% more", lockedText: "Build the fireplace first", base: 100, growth: 2.6, max: 4, needs: ["fire"] },
-  { id: "hotBelt", group: "hot", name: "Faster Food Belt", desc: "Moves cooked fish quicker and sends more per minute", lockedText: "Build the Hot Food Belt first", base: 80, growth: 2.4, max: 4, needs: ["hotBelt"] },
+  { id: "hotBelt", group: "hot", name: "Faster Food Belt", desc: "Moves cooked fish quicker and sends more per minute", lockedText: "Build the Fire Place to Hot Food belt first", base: 80, growth: 2.4, max: 4, needs: ["hotBelt"] },
+  { id: "feed", group: "hot", name: "Faster Fire Belt", desc: "Sends raw fish to the grill quicker", lockedText: "Build the Catch to Fire Place belt first", base: 60, growth: 2.4, max: 4, needs: ["feedBelt"] },
   { id: "grill", group: "hot", name: "Bigger Grill", desc: "2 more grill spaces, cooks 10% faster", lockedText: "Build the fireplace first", base: 60, growth: 2.3, max: 4, needs: ["fire"] },
+  { id: "cutters", group: "hot", name: "Hire a Woodcutter", desc: "Chops trees for wood while you do other things, up to 3", lockedText: "Hire your first seller on the pad", base: 120, growth: 2.5, max: 3, needs: ["cashier", "fire"] },
+  { id: "fenceSize", group: "sea", name: "Bigger Fence", desc: "Holds 4 more creatures, more fish in the sea", lockedText: "Build the Sea Fence first", base: 150, growth: 2.4, max: 3, needs: ["fence"] },
+  { id: "kitchenUp", group: "sea", name: "Better Cloud Kitchen", desc: "Sells faster, pays 20% more, holds 10 more", lockedText: "Build the Cloud Kitchen first", base: 200, growth: 2.4, max: 4, needs: ["kitchen"] },
+  { id: "hotelUp", group: "sea", name: "Grander Hotel", desc: "Sells faster, pays 20% more, holds 10 more", lockedText: "Build the Hotel first", base: 300, growth: 2.4, max: 4, needs: ["hotel"] },
+  { id: "kitchenRunners", group: "sea", name: "Cloud Kitchen Delivery Person", desc: "Carries creatures from the fence to the Cloud Kitchen. Each upgrade holds 2 more", lockedText: "Build the Cloud Kitchen first", base: 250, growth: 2.3, max: 5, needs: ["kitchen"] },
+  { id: "hotelRunners", group: "sea", name: "Hotel Delivery Person", desc: "Carries creatures from the fence to the Hotel. Each upgrade holds 2 more", lockedText: "Build the Hotel first", base: 250, growth: 2.3, max: 5, needs: ["hotel"] },
   { id: "net", name: "Wider Net", desc: "Bigger throw, +1 fish per throw", base: 15, growth: 2.1, max: 6 },
   { id: "bag", name: "Bigger Basket", desc: "Carry 2 more fish, up to 20", base: 20, growth: 2.0, max: 7 },
   { id: "boots", name: "Fast Boots", desc: "Walk 12% faster", base: 25, growth: 2.0, max: 5 },
@@ -90,7 +94,39 @@ CTC.COOKING = {
   buildWood: 6, buildCash: 15, woodCap: 20, logsPerTree: 3, chopTime: 0.45, regrow: 30,
   grillSlots: 4, cookTime: 5, fishPerLog: 3, pileCap: 20, priceMult: 2.5,
   dinerEvery: 3, dinerMaxWant: 2,
-  hotBeltCost: 150, hotSellerCost: 300
+  hotSellerCost: 300, cutterChop: 0.9, cutterSpeed: 120
+};
+
+// The three belts, bought from the Upgrades panel. A belt with `needs` waits for that build.
+CTC.BELTS = [
+  { id: "chain", name: "Catch to Fresh Fish Market", desc: "Carries crate fish to the stall", says: "Fish now ride from the crate to the stall." },
+  { id: "feedBelt", name: "Catch to Fire Place", desc: "Carries crate fish to the grill (still burns wood)", needs: "fire", says: "Raw fish now ride from the crate to the grill." },
+  { id: "hotBelt", name: "Fire Place to Hot Food", desc: "Carries cooked fish to the shop", needs: "fire", says: "Cooked fish now ride from the fire to the shop." }
+];
+
+// The Sea Farm unlocks in each place once only the ship is left to buy.
+// Costs and creature values are multiplied by the level's costScale.
+CTC.SEA = {
+  pen: { x0: 150, y0: 110, x1: 410, y1: 310 },
+  creatures: {
+    prawn: { name: "Prawn", value: 12, weight: 30, size: 0.8, speed: 26, color: "#ff9d7a", dark: "#d9694a" },
+    starfish: { name: "Starfish", value: 20, weight: 24, size: 0.9, speed: 6, color: "#ff8a4c", dark: "#c95a24" },
+    jellyfish: { name: "Jellyfish", value: 35, weight: 18, size: 1, speed: 14, color: "#d9a6ff", dark: "#a874e0" },
+    squid: { name: "Squid", value: 60, weight: 12, size: 1, speed: 34, color: "#f2c1d6", dark: "#c98aa8" },
+    lobster: { name: "Lobster", value: 100, weight: 8, size: 1, speed: 18, color: "#d9402f", dark: "#a82a1c" },
+    octopus: { name: "Octopus", value: 160, weight: 5, size: 1.15, speed: 16, color: "#b0529c", dark: "#853b75" },
+    shark: { name: "Shark", value: 300, weight: 3, size: 1.2, speed: 42, color: "#7d8e9c", dark: "#5a6a78" }
+  },
+  pickup: { x: 495, y: 190 }, runnerSpeed: 150, runnerCarry: 3, carryPerUpgrade: 2,
+  venues: {
+    kitchen: { x: 870, y: 170, zone: { x: 870, y: 205, r: 62 }, stock: "kitchenStock", runners: "kitchenRunners", label: "Cloud Kitchen", hireAt: [715, 215], upgrade: "kitchenUp", priceMult: 1, sellEvery: 1.4 },
+    hotel: { x: 1130, y: 200, zone: { x: 1130, y: 238, r: 66 }, stock: "hotelStock", runners: "hotelRunners", label: "Hotel", hireAt: [715, 255], upgrade: "hotelUp", priceMult: 1.6, sellEvery: 2.2 }
+  },
+  builds: [
+    { id: "fence", name: "Sea Fence", cost: 300, at: [280, 210], desc: "Fences off the sea: more fish, plus prawns, starfish, jellyfish, squid, lobsters, octopus and sharks", says: "Net the creatures inside it. More fish are coming too!" },
+    { id: "kitchen", name: "Cloud Kitchen", cost: 400, at: [870, 180], needs: ["fence"], desc: "Sells sea creatures quickly. Carry them to its circle", says: "Bring sea creatures to the circle and the cook sells them." },
+    { id: "hotel", name: "Hotel", cost: 600, at: [1130, 150], needs: ["fence"], desc: "Pays 60% more for sea creatures, but sells slower", says: "Bring sea creatures to the circle. Hotel guests pay more." }
+  ]
 };
 
 CTC.LEVELS = [
@@ -99,6 +135,7 @@ CTC.LEVELS = [
     name: "Sunny Cove",
     tagline: "One net, one stall, big dreams.",
     costScale: 1,
+    beltCosts: { chain: 220, feedBelt: 120, hotBelt: 150 },
     fishCount: 26,
     machineEvery: 3.2,
     customerEvery: 2.0,
@@ -121,10 +158,8 @@ CTC.LEVELS = [
     builds: [
       { type: "rig", spot: "rigA", name: "Auto-Net Crane", cost: 30, says: "It catches fish for you. Collect them from the crate!" },
       { type: "rig", spot: "rigB", name: "Second Crane", cost: 90, says: "Two cranes, twice the fish." },
-      { type: "chain", spot: "chain", name: "Delivery Chain", cost: 220, says: "Fish now ride from the crate to the stall on their own." },
       { type: "cashier", spot: "cashier", name: "Hire a Seller", cost: 400, says: "Customers get served while you're away." },
       { type: "rig", spot: "rigC", name: "Third Crane", cost: 650, says: "More fish on the chain." },
-      { type: "home", spot: "home", name: "Home Delivery Chain", cost: 1000, says: "Fish go straight to people's homes, at a 50% bonus!" },
       { type: "rig", spot: "rigD", name: "Fourth Crane", cost: 1400, says: "The cove runs itself now." },
       { type: "ship", spot: "dock", name: "Buy the Ship", cost: 2500 }
     ]
@@ -134,6 +169,7 @@ CTC.LEVELS = [
     name: "Coral Lagoon",
     tagline: "Sunset waters and pricier fish.",
     costScale: 5,
+    beltCosts: { chain: 500, feedBelt: 600, hotBelt: 750 },
     fishCount: 28,
     machineEvery: 3.0,
     customerEvery: 1.9,
@@ -155,11 +191,9 @@ CTC.LEVELS = [
     ],
     builds: [
       { type: "rig", spot: "rigA", name: "Auto-Net Crane", cost: 150, says: "Back in business." },
-      { type: "chain", spot: "chain", name: "Delivery Chain", cost: 500, says: "The chain is rolling again." },
       { type: "rig", spot: "rigB", name: "Second Crane", cost: 1000, says: "Keep it coming." },
       { type: "cashier", spot: "cashier", name: "Hire a Seller", cost: 2000, says: "Your seller is on duty." },
       { type: "boat", spot: "boatA", name: "Trawler", cost: 4000, says: "A trawler fishes at sea and hauls big catches to shore!" },
-      { type: "home", spot: "home", name: "Home Delivery Chain", cost: 7000, says: "The whole lagoon gets delivery." },
       { type: "boat", spot: "boatB", name: "Second Trawler", cost: 11000, says: "A proper fleet." },
       { type: "ship", spot: "dock", name: "Buy the Icebreaker", cost: 22000 }
     ]
@@ -169,6 +203,7 @@ CTC.LEVELS = [
     name: "Frozen Fjord",
     tagline: "Bitter cold, priceless catch.",
     costScale: 25,
+    beltCosts: { chain: 2500, feedBelt: 3000, hotBelt: 3750 },
     fishCount: 30,
     machineEvery: 2.8,
     customerEvery: 1.8,
@@ -190,11 +225,9 @@ CTC.LEVELS = [
     ],
     builds: [
       { type: "rig", spot: "rigA", name: "Auto-Net Crane", cost: 800, says: "Ice-proof gears, same great catch." },
-      { type: "chain", spot: "chain", name: "Delivery Chain", cost: 2500, says: "The chain keeps moving in the cold." },
       { type: "cashier", spot: "cashier", name: "Hire a Seller", cost: 5000, says: "Your seller's bundled up and ready." },
       { type: "boat", spot: "boatA", name: "Ice Trawler", cost: 12000, says: "Big hauls from deep water." },
       { type: "rig", spot: "rigB", name: "Second Crane", cost: 20000, says: "More fish for the chain." },
-      { type: "home", spot: "home", name: "Home Delivery Chain", cost: 35000, says: "Hot deliveries for cold neighbours." },
       { type: "boat", spot: "boatB", name: "Second Ice Trawler", cost: 60000, says: "You own the fjord." },
       { type: "ship", spot: "dock", name: "Buy the Flagship", cost: 120000 }
     ]

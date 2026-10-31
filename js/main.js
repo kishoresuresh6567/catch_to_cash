@@ -66,6 +66,8 @@
     CTC.audio.init();
     document.getElementById("drawer").classList.remove("open");
     document.getElementById("missionPanel").classList.remove("open");
+    CTC.ui.togglePanel(false);
+    CTC.ui.toggleTop(false);
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (touches.size === 1) {
@@ -145,6 +147,8 @@
     if (e.code === "Space" && G.mode === "play") { e.preventDefault(); CTC.audio.init(); if (!e.repeat) G.autoThrow(); }
     if (e.code === "KeyF" && G.mode === "play" && !e.repeat) { CTC.audio.init(); CTC.ui.toggleFood(); }
     if (e.code === "KeyM" && G.mode === "play") CTC.ui.toggleMissions();
+    if (e.code === "KeyO" && G.mode === "play") CTC.ui.togglePanel();
+    if (e.code === "KeyT" && G.mode === "play") CTC.ui.toggleTop();
     if (e.code === "KeyU" && G.mode === "play") document.getElementById("btnUpgrades").click();
     if (e.code === "Escape" && (G.mode === "play" || G.mode === "paused")) CTC.ui.toggleMenu();
   });

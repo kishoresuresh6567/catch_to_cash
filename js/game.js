@@ -2,7 +2,6 @@
 (function () {
   const L = CTC.LAYOUT;
   const SAVE_KEY = "catchToCash.v1";
-  const BUCKET_SPEED = 240;
   const THROW_RANGE = 310;
 
   const G = (CTC.game = {
@@ -11,7 +10,7 @@
     s: null,
     player: null,
     fish: [], schools: [], customers: [], particles: [], floats: [], flyers: [],
-    machines: [], belt: [], buckets: [],
+    machines: [], belt: [],
     net: null, aim: null, keys: {}, shake: 0, sailT: 0,
     cam: { z: 1, x: 0, y: 0, heldUntil: 0 },
     pendingThrow: null, cratePending: 0,
@@ -34,7 +33,6 @@
     if (x > 1262 || y < 74 || y > 706) return false;
     if (x < G.shoreX(y) + 10 && !G.onPier(x, y)) return false;
     if (x > 850 && x < 1030 && y > 385 && y < 466) return false; // stall
-    if (x > 815 && y < 190) return false; // houses
     if (G.s && G.s.fire && x > 880 && x < 1030 && y > 600 && y < 660) return false; // cooked food shop
     return true;
   }
@@ -46,8 +44,8 @@
     }
     return true;
   }
-  // Corners the player can route through to get around the stall, houses and pier.
-  const WAYPOINTS = [[838, 372], [1044, 372], [838, 480], [1044, 480], [800, 202], [548, 360], [868, 592], [1042, 592], [868, 668], [1042, 668]];
+  // Corners the player can route through to get around the stall and pier.
+  const WAYPOINTS = [[838, 372], [1044, 372], [838, 480], [1044, 480], [548, 360], [868, 592], [1042, 592], [868, 668], [1042, 668]];
   // Next point to head for on the shortest route to (tx, ty).
   function nextStep(p, tx, ty) {
     if (clearLine(p.x, p.y, tx, ty)) return { x: tx, y: ty };
@@ -67,13 +65,19 @@
     return step;
   }
 
+  G.nextStep = nextStep;
+
   /* ---------- level / derived values ---------- */
   G.level = () => CTC.LEVELS[G.s.level];
   G.count = (type) => G.level().builds.slice(0, G.s.built).filter((b) => b.type === type).length;
-  const SHOP_BUILDS = ["fire", "hotBelt", "hotSeller"];
+  const SHOP_BUILDS = ["fire", "chain", "feedBelt", "hotBelt", "hotSeller", "fence", "kitchen", "hotel"];
   G.has = (type) => (SHOP_BUILDS.includes(type) ? !!G.s[type] : G.count(type) > 0);
   G.cookingUnlocked = () => G.s.fire || G.has("cashier");
-  G.nextBuild = () => G.level().builds[G.s.built] || null;
+  // The ship stays hidden until the Sea Farm runs on its own.
+  G.nextBuild = () => {
+    const b = G.level().builds[G.s.built] || null;
+    return b && b.type === "ship" && !CTC.sea.ready() ? null : b;
+  };
   G.bagCap = () => Math.min(20, 6 + 2 * G.s.upg.bag);
   G.netRadius = () => 60 + 11 * G.s.upg.net;
   G.netCatch = () => 3 + G.s.upg.net;
@@ -100,18 +104,36 @@
   G.hotCap = () => CTC.COOKING.pileCap + 10 * G.s.upg.hotCart;
   G.hotSellerCount = () => (G.s.hotSeller ? 1 + G.s.upg.hotSellers : 0);
   G.hotBeltSpeed = () => 110 + 45 * G.s.upg.hotBelt;
+  G.feedBeltSpeed = () => 110 + 45 * G.s.upg.feed;
+  G.beltCost = (id) => G.level().beltCosts[id];
+  G.beltLocked = (b) => !!b.needs && !G.has(b.needs);
+  G.canBuyBelt = (b) => !G.has(b.id) && !G.beltLocked(b) && G.s.cash >= G.beltCost(b.id);
+  G.buyBelt = function (id) {
+    const b = CTC.BELTS.find((x) => x.id === id);
+    if (!b || !G.canBuyBelt(b)) return false;
+    G.s.cash -= G.beltCost(id);
+    G.s[id] = true;
+    G.stat("build_" + id);
+    const P = { chain: L.beltPath, feedBelt: L.feedBeltPath, hotBelt: L.hotBeltPath }[id];
+    const mid = G.pointOnPath(P, G.pathLength(P) / 2);
+    G.burst(mid.x, mid.y, 40, ["#ffe46b", "#fff", "#9fe8b8"], 220, 340, 1.1);
+    G.shake = 4;
+    CTC.audio.play("build");
+    G.emit("toast", b.name + ": " + b.says);
+    G.save();
+    return true;
+  };
   G.grillSlots = () => CTC.COOKING.grillSlots + 2 * G.s.upg.grill;
   G.cookTime = () => CTC.COOKING.cookTime * Math.pow(0.9, G.s.upg.grill);
   // The next thing to build for the Hot Food shop, once the fireplace exists.
   G.hotNext = function () {
     const s = G.s, C = CTC.COOKING, scale = G.level().costScale;
     if (!s.fire) return null;
-    if (!s.hotBelt) return { key: "hotBelt", name: "Hot Food Belt", cost: C.hotBeltCost * scale, says: "Cooked fish now ride from the fire to the shop." };
     if (!s.hotSeller) return { key: "hotSeller", name: "Hire a Food Seller", cost: C.hotSellerCost * scale, says: "Hot food customers get served while you're away." };
     return null;
   };
   G.fireCash = () => Math.round(CTC.COOKING.buildCash * G.level().costScale);
-  G.bagCount = () => G.s.carried.length + G.s.cookedBag.length;
+  G.bagCount = () => G.s.carried.length + G.s.cookedBag.length + G.s.seaBag.length;
   G.upgradeCost = (u) => Math.round(u.base * Math.pow(u.growth, G.s.upg[u.id]) * G.level().costScale);
   G.upgradeLocked = (u) => !!u.needs && !u.needs.some(G.has);
 
@@ -144,13 +166,43 @@
     return {
       level, cash: cash || 0, built: 0, paid: 0, time: 0,
       earned: 0, caught: 0, sold: 0,
-      upg: { net: 0, bag: 0, boots: 0, price: 0, rig: 0, traffic: 0, foodTime: 0, foodQuality: 0, sellers: 0, cart: 0, belt: 0, hotSellers: 0, hotCart: 0, hotBelt: 0, grill: 0 },
+      upg: { net: 0, bag: 0, boots: 0, price: 0, rig: 0, traffic: 0, foodTime: 0, foodQuality: 0, sellers: 0, cart: 0, belt: 0, hotSellers: 0, hotCart: 0, hotBelt: 0, grill: 0, feed: 0, cutters: 0, fenceSize: 0, kitchenUp: 0, hotelUp: 0, kitchenRunners: 0, hotelRunners: 0 },
       catcherLv: {},
       carried: [], crate: [], stock: [], campaignDone: false,
-      wood: 0, fire: false, hotBelt: false, hotSeller: false, fuel: 0, grill: [], cookedPile: [], cookedBag: [], cookedStock: []
+      noHomes: true, beltsInPanel: true, wood: 0, fire: false, chain: false, feedBelt: false, hotBelt: false, hotSeller: false, fuel: 0, grill: [], cookedPile: [], cookedBag: [], cookedStock: [],
+      fence: false, kitchen: false, hotel: false, seaToast: false, seaBag: [], kitchenStock: [], hotelStock: []
     };
   }
   G.freshSave = freshSave;
+  // Older saves were made when every place had a Home Delivery build at position 5.
+  // Without this, their build count would skip the next build in the list.
+  // The market belt used to be a pad in each place's build list. It's now in the Upgrades panel.
+  function migrateChainBuild(raw) {
+    if (raw.beltsInPanel) return;
+    raw.beltsInPanel = true;
+    const index = [2, 1, 1][raw.level];
+    raw.chain = raw.built > index;
+    if (raw.chain) raw.built--;
+    const levels = {};
+    Object.keys(raw.catcherLv).forEach((key) => {
+      const i = Number(key);
+      levels[i > index ? i - 1 : i] = raw.catcherLv[key];
+    });
+    raw.catcherLv = levels;
+  }
+
+  function migrateHomeBuild(raw) {
+    if (raw.noHomes) return;
+    raw.noHomes = true;
+    const HOME_INDEX = 5;
+    if (raw.built > HOME_INDEX) raw.built--;
+    const levels = {};
+    Object.keys(raw.catcherLv).forEach((key) => {
+      const i = Number(key);
+      if (i !== HOME_INDEX) levels[i > HOME_INDEX ? i - 1 : i] = raw.catcherLv[key];
+    });
+    raw.catcherLv = levels;
+  }
   G.save = function () {
     if (!G.s || G.saveLocked) return;
     CTC.player.save();
@@ -162,6 +214,8 @@
       if (raw && CTC.LEVELS[raw.level]) {
         raw.upg = Object.assign(freshSave(0).upg, raw.upg);
         raw.catcherLv = raw.catcherLv || {};
+        migrateHomeBuild(raw);
+        migrateChainBuild(raw);
         return Object.assign(freshSave(raw.level), raw);
       }
     } catch (e) { /* corrupt or blocked storage starts fresh */ }
@@ -177,12 +231,14 @@
     G.s = save;
     G.player = { x: L.start.x, y: L.start.y, tx: null, ty: null, face: -1, walk: 0, moving: false, throwT: 0, cool: 0, moveCool: 0 };
     G.fish = []; G.schools = []; G.customers = []; G.particles = []; G.floats = []; G.flyers = [];
-    G.machines = []; G.belt = []; G.buckets = []; G.net = null; G.pendingThrow = null; G.cratePending = 0;
+    G.machines = []; G.belt = []; G.net = null; G.pendingThrow = null; G.cratePending = 0;
     G.sailT = 0;
     G.food = null; G.foodArmed = false; G.foodFlying = false;
     G.trees = L.trees.map((t, i) => ({ x: t[0], y: t[1], i, hp: CTC.COOKING.logsPerTree, state: "up", t: 0, shake: 0 }));
-    G.chopT = 0; G.noticeT = 0; G.diners = []; G.hotBeltItems = [];
-    G.timers = { customer: 1, transfer: 0, serve: 0, belt: 0, home: 0, payFx: 0, respawn: 0 };
+    G.cutters = [];
+    CTC.sea.startLevel();
+    G.chopT = 0; G.noticeT = 0; G.diners = []; G.hotBeltItems = []; G.feedItems = [];
+    G.timers = { customer: 1, transfer: 0, serve: 0, belt: 0, payFx: 0, respawn: 0 };
     G.earnLog = [];
     for (let i = 0; i < 5; i++) {
       G.schools.push({ x: rand(60, 400), y: rand(100, 680), tx: rand(60, 400), ty: rand(100, 680) });
@@ -275,6 +331,8 @@
     CTC.audio.play("coin");
   }
 
+  G.addCash = addCash;
+
   G.earnRate = function () {
     const now = G.time;
     while (G.earnLog.length && now - G.earnLog[0].t > 15) G.earnLog.shift();
@@ -282,6 +340,8 @@
   };
 
   /* ---------- player input actions ---------- */
+  const ARROW_HIT = 24;
+  const CUTTER_START = { x: 790, y: 250 };
   G.moveTo = function (x, y) { G.player.tx = x; G.player.ty = y; G.pendingThrow = null; };
 
   G.clickWorld = function (x, y) {
@@ -289,11 +349,16 @@
     const hit = G.catchers().find((m) => {
       if (!G.chipVisible(m)) return false;
       const chip = G.chipPos(m);
-      return Math.abs(x - chip.x) < 46 && Math.abs(y - chip.y) < 18;
+      return dist(x, y, chip.x, chip.y) < ARROW_HIT;
     });
     if (hit) { G.upgradeCatcher(hit); return; }
-    const stallChip = G.stallChips().find((b) => Math.abs(x - b.x) < 66 && Math.abs(y - b.y) < 13);
-    if (stallChip) { G.buyUpgrade(stallChip.id); return; }
+    const stallChip = G.stallChips().find((b) => (b.text ? Math.abs(x - b.x) < 130 && Math.abs(y - b.y) < 13 : dist(x, y, b.x, b.y) < ARROW_HIT));
+    if (stallChip) {
+      if (stallChip.sea) CTC.sea.buy(stallChip.id);
+      else if (stallChip.belt) G.buyBelt(stallChip.id);
+      else G.buyUpgrade(stallChip.id);
+      return;
+    }
     if (G.foodArmed) {
       G.foodArmed = false;
       if (G.inWater(x, y)) {
@@ -387,10 +452,11 @@
     const p = G.player;
     let best = null, bestN = -1;
     const r = G.netRadius();
-    G.fish.forEach((f) => {
+    const all = G.fish.concat(G.pen);
+    all.forEach((f) => {
       if (dist(p.x, p.y, f.x, f.y) > THROW_RANGE) return;
       let n = 0;
-      G.fish.forEach((o) => { if (dist(f.x, f.y, o.x, o.y) < r) n++; });
+      all.forEach((o) => { if (dist(f.x, f.y, o.x, o.y) < r) n++; });
       if (n > bestN) { bestN = n; best = f; }
     });
     if (best) return G.throwAt(best.x, best.y);
@@ -400,30 +466,39 @@
 
   // The clickable upgrade button that appears on a catcher you can afford to level up.
   G.chipVisible = (m) => !G.catcherMaxed(m) && G.s.cash >= G.catcherCost(m);
-  G.chipPos = (m) => (m.type === "boat" ? { x: m.bx, y: m.by + 34 } : { x: m.x + 72, y: m.y + 22 });
+  G.chipPos = (m) => (m.type === "boat" ? { x: m.bx, y: m.by - 84 } : { x: m.x, y: m.y - 100 });
 
   // Same kind of buttons for the stall, shown beside it when affordable.
   G.stallChips = function () {
     const chips = [];
-    const add = (id, x, y, label) => {
+    // Upgrades are a blue arrow above the item, with no words. They appear when affordable.
+    const add = (id, x, y) => {
       const u = CTC.UPGRADES.find((x) => x.id === id);
       if (G.s.upg[id] >= u.max || G.upgradeLocked(u) || G.s.cash < G.upgradeCost(u)) return;
-      chips.push({ id, x, y, text: "\u25B2 " + label + ": " + G.fmt(G.upgradeCost(u)) });
+      chips.push({ id, x, y });
     };
-    add("cart", 1185, 345, "Cart Lv " + (G.s.upg.cart + 2));
-    add("sellers", 1185, 373, (G.s.upg.sellers + 2) + " sellers");
-    add("belt", 700, 600, "Belt Lv " + (G.s.upg.belt + 2));
-    // Only the two cheapest shop upgrades get buttons. The rest are in the panel.
-    const hot = [
-      ["hotCart", "Shop Lv " + (G.s.upg.hotCart + 2)],
-      ["hotSellers", (G.s.upg.hotSellers + 2) + " food sellers"],
-      ["hotBelt", "Food belt Lv " + (G.s.upg.hotBelt + 2)],
-      ["grill", (G.grillSlots() + 2) + " grill spaces"]
-    ].map(([id, label]) => ({ id, label, u: CTC.UPGRADES.find((x) => x.id === id) }))
-      .filter((h) => G.s.upg[h.id] < h.u.max && !G.upgradeLocked(h.u) && G.s.cash >= G.upgradeCost(h.u))
-      .sort((a, b) => G.upgradeCost(a.u) - G.upgradeCost(b.u))
-      .slice(0, 2);
-    hot.forEach((h, i) => add(h.id, 940, 682 + i * 26, h.label));
+    add("cart", 900, 258);
+    add("sellers", 980, 258);
+    add("belt", 775, 350);
+    add("feed", 655, 450);
+    add("grill", 640, 512);
+    add("hotBelt", 720, 610);
+    add("hotCart", 925, 497);
+    add("hotSellers", 985, 497);
+    // Words and price for the first woodcutter. After that, an arrow above them.
+    const cutters = CTC.UPGRADES.find((u) => u.id === "cutters");
+    if (G.s.upg.cutters === 0 && !G.upgradeLocked(cutters) && G.s.cash >= G.upgradeCost(cutters)) {
+      chips.push({ id: "cutters", x: 790, y: 300, text: "\u25B2 Hire woodcutter: " + G.fmt(G.upgradeCost(cutters)) });
+    } else if (G.cutters[0]) add("cutters", G.cutters[0].x, Math.max(20, G.cutters[0].y - 76));
+    add("fenceSize", 280, 80);
+    add("kitchenUp", 870, 50);
+    add("hotelUp", 1130, 28);
+    CTC.sea.chips().forEach((b) => chips.push(b));
+    // A button beside each belt's route as soon as it can be bought.
+    const BELT_CHIPS = { chain: [738, 402], feedBelt: [738, 470], hotBelt: [705, 600] };
+    CTC.BELTS.filter(G.canBuyBelt).forEach((b) => {
+      chips.push({ belt: true, id: b.id, x: BELT_CHIPS[b.id][0], y: BELT_CHIPS[b.id][1], text: "\u25B2 Build belt: " + G.fmt(G.beltCost(b.id)) });
+    });
     return chips;
   };
 
@@ -437,7 +512,6 @@
     G.stat("catcherUps");
     m.pop = 0;
     const at = m.type === "boat" ? { x: m.bx, y: m.by } : m;
-    G.float(at.x, at.y - 60, "Now catches " + G.catcherLv(m) + " fish!", "#9fe8b8", 22);
     G.burst(at.x, at.y - 30, 24, ["#ffe46b", "#fff", "#9fe8b8"], 170);
     CTC.audio.play("upgrade");
     G.save();
@@ -452,21 +526,26 @@
     G.s.cash -= cost;
     G.s.upg[id]++;
     G.stat("upgrades");
+    CTC.sea.onUpgrade(id);
     CTC.audio.play("upgrade");
     G.burst(G.player.x, G.player.y - 40, 16, ["#ffe46b", "#fff", "#9fe8b8"], 130);
+    if (id === "cutters") {
+      G.burst(CUTTER_START.x, CUTTER_START.y - 30, 24, ["#ffe46b", "#fff", "#c79a5a"], 170);
+      if (G.s.upg.cutters === 1) {
+        G.stat("build_cutter");
+        G.emit("toast", "Woodcutter hired: wood now gets chopped while you're away.");
+      }
+    }
     if (id === "belt") {
       const mid = G.beltPoint(150);
       G.burst(mid.x, mid.y, 30, ["#ffe46b", "#fff", "#9fe8b8"], 190);
-      G.float(mid.x, mid.y - 30, "Belt upgraded!", "#9fe8b8", 24);
     }
-    if (id === "hotSellers" || id === "hotCart" || id === "hotBelt" || id === "grill") {
+    if (id === "hotSellers" || id === "hotCart" || id === "hotBelt" || id === "grill" || id === "feed") {
       const at = id === "grill" ? L.fire : L.shop;
       G.burst(at.x, at.y - 50, 30, ["#ffe46b", "#fff", "#ff8a3c"], 190);
-      G.float(at.x, at.y - 90, id === "grill" ? "Grill upgraded!" : id === "hotBelt" ? "Food belt upgraded!" : id === "hotCart" ? "Shop upgraded!" : "New food seller!", "#ffe0a3", 24);
     }
     if (id === "sellers" || id === "cart") {
       G.burst(L.stall.x, L.stall.y - 70, 30, ["#ffe46b", "#fff", "#9fe8b8"], 190);
-      G.float(L.stall.x, L.stall.y - 110, id === "cart" ? "Cart upgraded!" : "New seller hired!", "#9fe8b8", 24);
     }
     G.save();
     return true;
@@ -485,13 +564,14 @@
       updateChopping(dt);
       updateFire(dt);
       updateHotLine(dt);
+      updateFeedBelt(dt);
       updateCustomers(dt);
       updateShop(dt);
       updateSelling(dt);
       updateMachines(dt);
       updateBelt(dt);
-      updateHome(dt);
       updatePad(dt);
+      CTC.sea.update(dt);
     }
     if (G.mode === "sailing") {
       G.sailT += dt;
@@ -537,7 +617,7 @@
     }
     if (G.mode === "play") {
       G.timers.respawn -= dt;
-      if (G.fish.length < G.level().fishCount && G.timers.respawn <= 0) { spawnFish(false); G.timers.respawn = 0.5; }
+      if (G.fish.length < G.level().fishCount + CTC.sea.extraFish() && G.timers.respawn <= 0) { spawnFish(false); G.timers.respawn = 0.5; }
     }
     for (let i = G.particles.length - 1; i >= 0; i--) {
       const p = G.particles[i];
@@ -605,7 +685,9 @@
       G.shake = 3;
       CTC.audio.play("splash");
       const r = G.netRadius();
-      const room = Math.min(G.netCatch(), G.bagCap() - G.bagCount());
+      let room = Math.min(G.netCatch(), G.bagCap() - G.bagCount());
+      n.sea = CTC.sea.netCatch(n.x, n.y, r, room);
+      room -= n.sea.length;
       // The net always holds on to the most valuable fish it covers.
       const defs = G.level().fish;
       const caught = G.fish.filter((f) => dist(f.x, f.y, n.x, n.y) < r)
@@ -617,15 +699,20 @@
       n.phase = "pull"; n.t = 0;
     } else if (n.phase === "pull" && n.t >= 0.34) {
       const p = G.player;
-      if (n.fish.length) {
+      if (n.fish.length || n.sea.length) {
         n.fish.forEach((f) => G.s.carried.push(f.species));
-        G.s.caught += n.fish.length;
-        G.stat("netCaught", n.fish.length);
+        n.sea.forEach((kind, i) => {
+          G.s.seaBag.push(kind);
+          G.fly({ kind: "sea", creature: kind, x0: n.x, y0: n.y, x1: p.x, y1: p.y - 55, dur: 0.3 + i * 0.05, h: 50 });
+        });
+        const total = n.fish.length + n.sea.length;
+        G.s.caught += total;
+        G.stat("netCaught", total);
         G.stat("rare", n.fish.filter((f) => G.level().fish[f.species].rare).length);
         G.stat("big", n.fish.filter((f) => G.level().fish[f.species].size >= 1.5).length);
         const rare = n.fish.some((f) => G.level().fish[f.species].rare);
         const big = n.fish.some((f) => G.level().fish[f.species].size >= 1.5);
-        const label = rare ? "RARE CATCH!" : big ? "BIG CATCH!" : "+" + n.fish.length + " fish";
+        const label = rare ? "RARE CATCH!" : big ? "BIG CATCH!" : "+" + total + " fish";
         G.float(p.x, p.y - 90, label, rare || big ? "#ffe46b" : "#fff", rare || big ? 28 : 22);
         G.burst(p.x, p.y - 50, rare ? 28 : 8, rare ? ["#ffe46b", "#fff"] : ["#c9f3ff", "#fff"], 130);
         CTC.audio.play("catch");
@@ -680,6 +767,7 @@
       }
     });
     G.noticeT = Math.max(0, G.noticeT - dt);
+    updateCutters(dt);
     p.chopping = false;
     if (p.moving || !G.cookingUnlocked()) { G.chopT = 0; return; }
     const tree = G.trees.find((tr) => tr.state === "up" && dist(p.x, p.y, tr.x, tr.y) < 58);
@@ -694,22 +782,89 @@
     G.chopT += dt;
     if (G.chopT < C.chopTime) return;
     G.chopT = 0;
+    chopTree(tree, p.x);
+    if (tree.state === "fall") G.shake = 3;
+  }
+
+  function chopTree(tree, fromX) {
     tree.hp--;
     tree.shake = 1;
-    s.wood++;
+    G.s.wood++;
     G.stat("wood");
     G.burst(tree.x, tree.y - 20, 8, ["#c79a5a", "#8c6239", "#e9d3a5"], 110);
     G.float(tree.x, tree.y - 55, "+1 wood", "#ffe0a3", 18);
-    G.fly({ kind: "log", x0: tree.x, y0: tree.y - 20, x1: G.cam.x + 60 / G.cam.z, y1: G.cam.y + 255 / G.cam.z, dur: 0.55, h: 60 });
+    G.fly({ kind: "log", x0: tree.x, y0: tree.y - 20, x1: G.cam.x + 40 / G.cam.z, y1: G.cam.y + 40 / G.cam.z, dur: 0.55, h: 60 });
     CTC.audio.play("chop");
     if (tree.hp <= 0) {
       tree.state = "fall"; tree.t = 0;
-      tree.dir = p.x < tree.x ? 1 : -1;
-      G.shake = 3;
+      tree.dir = fromX < tree.x ? 1 : -1;
     }
   }
 
-  // Builds the Hot Food Belt and seller, then runs the belt from the fire to the shop.
+  // Hired woodcutters each walk to the nearest free tree and stop when the wood is full.
+  function updateCutters(dt) {
+    const s = G.s, C = CTC.COOKING;
+    while (G.cutters.length < s.upg.cutters) {
+      G.cutters.push({ x: CUTTER_START.x, y: CUTTER_START.y, face: 1, walk: 0, moving: false, chopping: false, chopT: 0, tree: null, look: CTC.art.cutterLooks[G.cutters.length] });
+    }
+    G.cutters.forEach((w) => {
+      w.moving = false; w.chopping = false;
+      if (w.tree && w.tree.state !== "up") w.tree = null;
+      if (s.wood >= C.woodCap) { w.tree = null; return; }
+      if (!w.tree) {
+        const free = G.trees.filter((tr) => tr.state === "up" && !G.cutters.some((o) => o.tree === tr));
+        free.sort((a, b) => dist(w.x, w.y, a.x, a.y) - dist(w.x, w.y, b.x, b.y));
+        if (!free[0]) return;
+        w.tree = free[0];
+        w.tx = w.tree.x + (w.x < w.tree.x ? -24 : 24);
+        w.ty = Math.max(80, w.tree.y + 6);
+      }
+      if (dist(w.x, w.y, w.tx, w.ty) > 6) {
+        const step = nextStep(w, w.tx, w.ty);
+        const d = dist(w.x, w.y, step.x, step.y) || 1;
+        w.x += ((step.x - w.x) / d) * C.cutterSpeed * dt;
+        w.y += ((step.y - w.y) / d) * C.cutterSpeed * dt;
+        if (Math.abs(step.x - w.x) > 1) w.face = step.x < w.x ? -1 : 1;
+        w.moving = true;
+        w.walk += dt * 9;
+        return;
+      }
+      w.face = w.tree.x < w.x ? -1 : 1;
+      w.chopping = true;
+      w.chopT += dt;
+      if (w.chopT >= C.cutterChop) { w.chopT = 0; chopTree(w.tree, w.x); }
+    });
+  }
+
+  // Runs the belt that carries raw fish from the crate to the grill. Each fish pays its
+  // wood when it sets off, so a fish on the belt always has fuel waiting.
+  function updateFeedBelt(dt) {
+    const s = G.s, C = CTC.COOKING;
+    if (!s.feedBelt || !s.fire) return;
+    G.timers.feed = (G.timers.feed || 0) - dt;
+    if (G.timers.feed <= 0 && s.crate.length && s.grill.length + G.feedItems.length < G.grillSlots()) {
+      if (s.fuel > 0 || s.wood > 0) {
+        if (s.fuel <= 0) { s.wood--; s.fuel = C.fishPerLog; }
+        s.fuel--;
+        G.feedItems.push({ species: s.crate.pop(), d: 0 });
+        G.timers.feed = 0.6 / (1 + 0.5 * s.upg.feed);
+      } else if (G.noticeT <= 0) {
+        G.float(L.fire.x, L.fire.y - 62, "No wood! Chop a tree", "#ffb3a8", 18);
+        G.noticeT = 3;
+      }
+    }
+    for (let i = G.feedItems.length - 1; i >= 0; i--) {
+      const b = G.feedItems[i];
+      b.d += G.feedBeltSpeed() * dt;
+      if (b.d >= G.pathLength(L.feedBeltPath)) {
+        s.grill.push({ sp: b.species, t: 0 });
+        G.feedItems.splice(i, 1);
+        CTC.audio.play("plop");
+      }
+    }
+  }
+
+  // Builds the food seller, then runs the belt from the fire to the shop.
   function updateHotLine(dt) {
     const s = G.s, p = G.player, next = G.hotNext();
     if (next && dist(p.x, p.y, L.hotPad.x, L.hotPad.y) < 50 && s.cash >= next.cost) {
@@ -779,7 +934,7 @@
     G.timers.cook = (G.timers.cook || 0) - dt;
     if (G.timers.cook > 0) return;
     const hasFuel = s.fuel > 0 || s.wood > 0;
-    if (s.carried.length && s.grill.length < G.grillSlots() && hasFuel) {
+    if (s.carried.length && s.grill.length + G.feedItems.length < G.grillSlots() && hasFuel) {
       if (s.fuel <= 0) { s.wood--; s.fuel = C.fishPerLog; }
       s.fuel--;
       const sp = s.carried.pop();
@@ -984,35 +1139,6 @@
     }
   }
 
-  function updateHome(dt) {
-    if (!G.has("home")) return;
-    const s = G.s, c = L.cable;
-    G.timers.home -= dt;
-    if (G.timers.home <= 0 && s.stock.length > 2) {
-      const house = L.houses[Math.floor(Math.random() * L.houses.length)];
-      G.buckets.push({ species: s.stock.shift(), x: c.stallX, y: c.stallY, house, state: "up" });
-      G.timers.home = 0.9 / G.demandBoost();
-    }
-    for (let i = G.buckets.length - 1; i >= 0; i--) {
-      const b = G.buckets[i];
-      const sp = BUCKET_SPEED * dt;
-      if (b.state === "up") {
-        b.y -= sp;
-        if (b.y <= c.y) { b.y = c.y; b.state = "across"; }
-      } else {
-        const dx = b.house.x - b.x;
-        if (Math.abs(dx) <= sp) {
-          s.sold++;
-          addCash(Math.round(G.fishValue(b.species) * 1.5), b.house.x, b.house.y + 10);
-          G.stat("sold");
-          G.stat("deliveries");
-          G.burst(b.house.x, b.house.y, 8, ["#ffe46b", "#fff"], 90);
-          G.buckets.splice(i, 1);
-        } else b.x += Math.sign(dx) * sp;
-      }
-    }
-  }
-
   function updatePad(dt) {
     const b = G.nextBuild(), s = G.s, p = G.player;
     if (!b || s.cash <= 0) return;
@@ -1063,6 +1189,10 @@
       const there = dist(p.x, p.y, L.shopZone.x, L.shopZone.y) < L.shopZone.r;
       if (there && !s.hotSeller) return { text: "Serving hot food. Stay here until it's sold" };
     }
+    if (s.seaBag.length && (s.kitchen || s.hotel)) {
+      const zone = CTC.SEA.venues[s.kitchen ? "kitchen" : "hotel"].zone;
+      return { text: "Take your sea creatures to the Cloud Kitchen or Hotel", x: zone.x, y: zone.y - 20 };
+    }
     if (G.food && G.bagCount() < G.bagCap()) return { text: "Fish are swarming to the food. Throw your net there!" };
     if (s.campaignDone) return { text: "You conquered every sea! More levels coming soon." };
     if (b) {
@@ -1072,7 +1202,8 @@
     const cap = G.bagCap();
     const zone = L.stallZone;
     const atStall = dist(p.x, p.y, zone.x, zone.y) < zone.r;
-    const saving = b ? "Next: " + b.name + " · " + G.fmt(b.cost - s.paid) + " to go" : "";
+    const seaStep = !b && G.seaUnlocked() && !s.campaignDone && CTC.sea.steps().find((x) => !x.done);
+    const saving = b ? "Next: " + b.name + " · " + G.fmt(b.cost - s.paid) + " to go" : seaStep ? "To unlock the ship: " + seaStep.name + " · " + G.fmt(seaStep.cost) : "";
     if (G.bagCount() >= cap || (s.carried.length && !G.net && s.carried.length >= 3)) {
       return { text: "Take your fish to the stall", x: zone.x, y: zone.y + 15 };
     }
@@ -1087,6 +1218,9 @@
         ? "Click a tree to chop wood for a fireplace (" + s.wood + "/" + CTC.COOKING.buildWood + ")"
         : "Stand on the fireplace pad to build it" };
     }
+    const belt = CTC.BELTS.find(G.canBuyBelt);
+    if (seaStep) return { text: saving };
+    if (belt) return { text: "Open Upgrades to build a belt: " + belt.name + " (" + G.fmt(G.beltCost(belt.id)) + ")" };
     const hot = G.hotNext();
     if (hot && s.cash >= hot.cost) return { text: "Stand on the pad: " + hot.name + " (" + G.fmt(hot.cost) + ")", x: L.hotPad.x, y: L.hotPad.y - 30 };
     return { text: saving };

@@ -35,10 +35,29 @@ html, body { position: fixed; inset: 0; touch-action: none; overscroll-behavior:
 .coin { width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff2a8, var(--gold) 55%, var(--gold-dark)); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .35); }
 @keyframes punch { 40% { transform: scale(1.16); color: #ffe27a; } }
 
-#btnBasket, #btnFood { position: absolute; left: 16px; top: 84px; font-size: 14px; padding: 7px 12px; text-align: left; }
-#btnFood { top: 128px; }
-#woodInfo { position: absolute; left: 16px; top: 240px; font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 12px; background: rgba(90, 50, 20, .88); color: #ffe9c8; }
-#foodUps { position: absolute; left: 16px; top: 172px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+/* The hidden options on the left. Only the arrow tab shows until it is opened. */
+#leftDock { position: absolute; left: 0; top: 84px; display: flex; align-items: flex-start; max-height: calc(100% - 100px); transform: translateX(calc(-100% + 18px)); transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
+#leftDock.open { transform: none; }
+#leftPanel { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 300px; max-height: 100%; overflow-y: auto; touch-action: pan-y; padding: 12px 12px 12px 16px; background: rgba(13, 40, 60, .9); border-radius: 0 0 16px 0; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: auto; visibility: hidden; transition: visibility .22s; }
+#leftDock.open #leftPanel { visibility: visible; }
+#panelTab { position: relative; flex: none; width: 18px; height: 42px; padding: 0; border: 0; border-radius: 0 9px 9px 0; background: rgba(13, 40, 60, .6); color: #ffc531; font-size: 10px; line-height: 1; cursor: pointer; }
+/* The tabs look slim, but this invisible margin keeps them easy to hit with a finger. */
+#panelTab::after, #topTab::after { content: ""; position: absolute; inset: -10px -14px; }
+#panelTab:focus-visible, #topTab:focus-visible { outline: 3px solid #fff; outline-offset: -3px; }
+/* The hidden goal and player level at the top. Only the arrow tab shows until it is opened. */
+#topDock { position: absolute; left: 50%; top: 0; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, calc(-100% + 16px)); transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
+#topDock.open { transform: translate(-50%, 0); }
+#topPanel { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(13, 40, 60, .9); border-radius: 0 0 16px 16px; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: auto; visibility: hidden; transition: visibility .22s; }
+#topDock.open #topPanel { visibility: visible; }
+#topTab { position: relative; flex: none; width: 42px; height: 16px; padding: 0; border: 0; border-radius: 0 0 9px 9px; background: rgba(13, 40, 60, .6); color: #ffc531; font-size: 9px; line-height: 1; cursor: pointer; }
+#topArrow { display: inline-block; transition: transform .22s; }
+#topDock.open #topArrow { transform: rotate(180deg); }
+#panelArrow { display: inline-block; transition: transform .22s; }
+#leftDock.open #panelArrow { transform: rotate(180deg); }
+#panelDot { position: absolute; right: 3px; top: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+#btnBasket, #btnFood { font-size: 14px; padding: 7px 12px; text-align: left; }
+#woodInfo { font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 12px; background: rgba(90, 50, 20, .88); color: #ffe9c8; }
+#foodUps { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 #foodUps .btn { font-size: 13px; padding: 5px 10px; }
 #foodUps .btn[disabled] { background: rgba(255, 248, 231, .88); box-shadow: 0 3px 0 rgba(22, 50, 74, .3); cursor: default; transform: none; filter: none; }
 .fishrow { display: grid; grid-template-columns: 72px 1fr auto; align-items: center; gap: 8px; background: #fff; border-radius: 12px; padding: 2px 12px 2px 4px; margin-bottom: 6px; }
@@ -49,7 +68,7 @@ html, body { position: fixed; inset: 0; touch-action: none; overscroll-behavior:
 .fishrow.locked .price { color: inherit; opacity: .5; }
 #btnFood.armed { background: #ffe0a3; outline: 3px solid #fff; }
 #btnBasket[disabled], #btnFood[disabled] { background: rgba(255, 248, 231, .88); box-shadow: 0 3px 0 rgba(22, 50, 74, .3); cursor: default; transform: none; filter: none; }
-#goal { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); width: 500px; background: rgba(255, 248, 231, .95); border-radius: 18px; padding: 7px 16px 10px; text-align: center; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); }
+#goal { width: 500px; background: rgba(255, 248, 231, .95); border-radius: 18px; padding: 7px 16px 10px; text-align: center; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); }
 #levelName { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .65; font-weight: 700; }
 #objective { font-size: 16px; font-weight: 700; min-height: 21px; }
 #roadmap { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
@@ -57,7 +76,7 @@ html, body { position: fixed; inset: 0; touch-action: none; overscroll-behavior:
 .step i { display: block; height: 100%; width: 0; background: var(--green); transition: width .2s; }
 .step.next i { background: var(--gold); }
 
-#buttons { position: absolute; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 8px; }
+#buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .badge { display: inline-block; min-width: 20px; border-radius: 10px; background: var(--red); color: #fff; font-size: 12px; padding: 1px 6px; margin-left: 4px; }
 
 /* Upgrade drawer */
@@ -77,12 +96,12 @@ html, body { position: fixed; inset: 0; touch-action: none; overscroll-behavior:
 .up .btn[disabled] { filter: grayscale(.9); opacity: .55; cursor: default; transform: none; }
 
 /* Player level and missions */
-#playerBadge { position: absolute; right: 16px; top: 14px; width: 176px; padding: 7px 12px 6px; text-align: left; display: flex; flex-direction: column; gap: 3px; background: rgba(13, 40, 60, .9); color: #fff; }
+#playerBadge { flex: none; width: 176px; padding: 7px 12px 6px; text-align: left; display: flex; flex-direction: column; gap: 3px; background: rgba(13, 40, 60, .9); color: #fff; }
 #playerLevel { font-size: 16px; font-weight: 800; }
 .xpbar { display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .2); overflow: hidden; }
 .xpbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #7fe0ff, #9fe8b8); transition: width .25s; }
 #xpText { font-size: 11px; opacity: .8; font-weight: 400; }
-#missionTracker { position: absolute; left: 16px; bottom: 16px; width: 300px; background: rgba(13, 40, 60, .84); color: #fff; border-radius: 14px; padding: 8px 12px; pointer-events: none; font-size: 13px; }
+#missionTracker { width: 100%; background: rgba(255, 255, 255, .1); color: #fff; border-radius: 12px; padding: 8px 10px; font-size: 13px; }
 #missionTracker h4 { margin: 0 0 5px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
 .track { margin-bottom: 6px; }
 .track:last-child { margin-bottom: 0; }
@@ -104,8 +123,8 @@ html, body { position: fixed; inset: 0; touch-action: none; overscroll-behavior:
 #stage.compact #goal { width: 380px; padding: 5px 12px 7px; }
 #stage.compact #objective { font-size: 13px; min-height: 17px; line-height: 1.2; }
 #stage.compact #levelName { font-size: 9px; }
-#stage.compact #missionTracker { width: 230px; padding: 6px 9px; font-size: 11px; }
-#stage.compact .track:nth-child(n+3) { display: none; }
+#stage.compact #leftPanel { width: 290px; gap: 6px; padding: 8px 10px 8px 12px; }
+#stage.compact #missionTracker { padding: 6px 9px; font-size: 11px; }
 #stage.compact #playerBadge { width: 140px; }
 #stage.compact .logo { font-size: 58px; }
 #stage.compact .tag { font-size: 16px; margin-bottom: 0; }
@@ -270,6 +289,22 @@ html, body { position: fixed; inset: 0; touch-action: none; overscroll-behavior:
 .card { background: var(--paper); color: var(--ink); padding: 26px 40px; border-radius: 24px; min-width: 430px; max-width: 620px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 20px 50px rgba(0, 0, 0, .45); animation: pop .35s cubic-bezier(.2, 1.5, .4, 1); }
 @keyframes pop { from { transform: scale(.7); opacity: 0; } }
 .card h2 { margin: 0; font-size: 38px; }
+/* The card sits to the right so the jumping fish stays visible in the water. */
+#briefing { align-items: flex-end; padding-right: 5%; background: #123a63; }
+#leapCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#briefing .card { position: relative; }
+#briefKicker { letter-spacing: .16em; text-transform: uppercase; font-size: 13px; font-weight: 700; color: #1a8f4a; }
+#briefText { margin: 0; font-size: 16px; }
+#briefList { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+#briefing .card { min-width: 620px; max-width: 700px; }
+#briefList li { display: flex; align-items: center; justify-content: space-between; gap: 18px; background: #fff; border-radius: 10px; padding: 6px 12px; font-weight: 700; text-align: left; }
+#briefList span { color: #1a8f4a; font-variant-numeric: tabular-nums; }
+#briefList li.done { background: #e4f5e8; color: #1a8f4a; }
+#briefList li.done::before { content: "\2713"; margin-right: -10px; }
+#briefList li.done b { font-weight: 700; flex: 1; }
+#stage.compact #briefList { gap: 3px; }
+#stage.compact #briefList li { padding: 3px 12px; font-size: 13px; }
+#stage.compact #briefText { font-size: 13px; }
 #doneKicker { letter-spacing: .16em; text-transform: uppercase; font-size: 13px; font-weight: 700; color: #1a8f4a; }
 #doneStats { display: flex; gap: 22px; margin: 6px 0; }
 #doneStats b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }

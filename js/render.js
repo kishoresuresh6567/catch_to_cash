@@ -456,6 +456,10 @@
       rise += 7 * Math.max(0.8, def.size * 0.8);
       Art.fish(c, p.x - p.face * 4 + sway * (n + j) * 0.55, p.y - 73 - rise, def, 0.68, p.face < 0 ? Math.PI : 0, 0);
     });
+    s.seaBag.slice(0, Math.max(0, 20 - n - s.cookedBag.length)).forEach((kind, j) => {
+      rise += 11;
+      CTC.sea.drawCreature(c, kind, p.x - p.face * 4 + sway * (n + j) * 0.55, p.y - 73 - rise, 0.55, t, p.face);
+    });
     if (G.bagCount()) {
       const full = G.bagCount() >= G.bagCap();
       Art.badge(c, p.x + 28, p.y - 76, G.bagCount() + "/" + G.bagCap(), full ? "#e4574c" : "#16324a");
@@ -571,58 +575,19 @@
     c.fillText(line, F.x, F.y + 13);
   }
 
-  function drawOverheadCable(t) {
-    const C = L.cable;
-    c.strokeStyle = "#3a4552";
-    c.lineWidth = 3;
-    c.beginPath();
-    c.moveTo(C.stallX, C.stallY);
-    c.lineTo(C.stallX, C.y);
-    c.moveTo(C.x0, C.y);
-    c.lineTo(C.x1, C.y);
-    c.stroke();
-    // Moving link pattern
-    c.save();
-    c.strokeStyle = "#ffc531";
-    c.lineWidth = 3;
-    c.setLineDash([3, 11]);
-    c.lineDashOffset = -t * 60;
-    c.beginPath();
-    c.moveTo(C.stallX, C.stallY);
-    c.lineTo(C.stallX, C.y);
-    c.lineTo(C.x1, C.y);
-    c.moveTo(C.stallX, C.y);
-    c.lineTo(C.x0, C.y);
-    c.stroke();
-    c.restore();
-    c.fillStyle = "#3a4552";
-    [C.x0, C.stallX, C.x1].forEach((x) => { Art.rr(c, x - 6, C.y - 6, 12, 12, 3); c.fill(); });
-    G.buckets.forEach((b) => {
-      c.strokeStyle = "#3a4552";
-      c.lineWidth = 2;
-      c.beginPath();
-      c.moveTo(b.x, b.y);
-      c.lineTo(b.x, b.y + 10);
-      c.stroke();
-      c.fillStyle = "#c0562a";
-      Art.rr(c, b.x - 13, b.y + 10, 26, 14, 3);
-      c.fill();
-      Art.fish(c, b.x, b.y + 7, G.level().fish[b.species], 0.65, 0, 0);
-    });
-  }
-
-  // Shows how many fish each catcher lands, plus a button when an upgrade is affordable.
+  // Shows how many fish each catcher lands, plus a blue arrow when an upgrade is affordable.
   function drawCatcherTags(t) {
-    G.stallChips().forEach((b, i) => Art.badge(c, b.x, b.y + Math.sin(t * 5 + i) * 1.5, b.text, "#1a8f4a"));
+    G.stallChips().forEach((b, i) => {
+      const y = b.y + Math.sin(t * 5 + i) * 1.5;
+      if (b.text) Art.badge(c, b.x, y, b.text, "#1a8f4a");
+      else Art.upgradeArrow(c, b.x, y);
+    });
     G.catchers().forEach((m) => {
       const lv = G.catcherLv(m);
       const chip = G.chipPos(m);
       if (m.type === "rig") Art.badge(c, m.x, m.y - 74, lv + " fish", lv > 1 ? "#2f7fd6" : "#16324a");
       else Art.badge(c, m.bx + 42, m.by - 30, "x" + lv, lv > 1 ? "#2f7fd6" : "#16324a");
-      if (G.chipVisible(m)) {
-        const y = chip.y + Math.sin(t * 5 + m.index) * 2;
-        Art.badge(c, chip.x, y, "▲ " + (lv + 1) + " fish: " + G.fmt(G.catcherCost(m)), "#1a8f4a");
-      }
+      if (G.chipVisible(m)) Art.upgradeArrow(c, chip.x, chip.y + Math.sin(t * 5 + m.index) * 2);
     });
   }
 
@@ -689,13 +654,16 @@
 
     const shipX = L.ship.x - (G.mode === "sailing" ? Math.pow(G.sailT, 2) * 62 : 0);
     Art.ship(c, shipX, L.ship.y, t);
+    CTC.sea.drawWater(c, t);
     G.machines.forEach((m) => { if (m.type === "boat") Art.boat(c, m, t, T); });
 
     c.drawImage(landLayer, 0, 0, W, H);
     drawFoam(t, T);
 
     if (G.has("chain")) drawBelt(t, L.beltPath, G.belt, s.upg.belt, G.beltSpeed(), false);
+    if (s.feedBelt) drawBelt(t, L.feedBeltPath, G.feedItems, s.upg.feed, G.feedBeltSpeed(), false);
     if (s.hotBelt) drawBelt(t, L.hotBeltPath, G.hotBeltItems, s.upg.hotBelt, G.hotBeltSpeed(), true);
+    CTC.sea.drawGround(c);
     const next = G.nextBuild();
     if (next && !s.campaignDone) drawPad(next, s, t);
     if (!s.fire && G.cookingUnlocked()) drawFirePad(t);
@@ -732,7 +700,7 @@
     // Depth sort everything standing on land
     const list = [];
     drawDecor(list, t, T.decor);
-    L.houses.forEach((h, i) => list.push({ y: h.y, draw: () => Art.house(c, h, i, t, T) }));
+    CTC.sea.addDepth(list, c, t);
     const hotSellers = Array.from({ length: G.hotSellerCount() }, (_, i) => ({ look: Art.sellerLooks[i], face: 1, idle: t + i * 2, moving: false, joy: 0 }));
     if (s.fire) list.push({ y: L.shop.y, draw: () => Art.foodShop(c, L.shop.x, L.shop.y, t, s.cookedStock, defs, hotSellers, s.upg.hotCart, G.hotCap()) });
     if (s.fire) list.push({ y: L.fire.y, draw: () => Art.fireplace(c, L.fire.x, L.fire.y, t, s.grill, G.cookTime(), defs, s.cookedPile, s.grill.length > 0, s.wood) });
@@ -743,6 +711,13 @@
     G.customers.concat(G.diners).forEach((cu) => {
       list.push({ y: cu.y, draw: () => { cu.idle = t + cu.walk; Art.person(c, cu.x, cu.y, cu); drawBubble(cu, defs); } });
     });
+    G.cutters.forEach((w) => list.push({
+      y: w.y,
+      draw: () => {
+        Art.person(c, w.x, w.y, { look: w.look, face: w.face, walk: w.walk, moving: w.moving, idle: t, throwing: w.chopping });
+        if (w.chopping) Art.axe(c, w.x + w.face * 18, w.y - 38, Math.min(1, w.chopT / CTC.COOKING.cutterChop), w.face);
+      }
+    }));
     list.push({
       y: p.y,
       draw: () => {
@@ -756,7 +731,6 @@
     list.forEach((e) => e.draw());
 
     if (G.mode === "play") drawCatcherTags(t);
-    if (G.has("home")) drawOverheadCable(t);
 
     drawNetThrow(t);
     drawAim(t);
@@ -775,6 +749,7 @@
           c.fill();
         }
       }
+      else if (f.kind === "sea") CTC.sea.drawCreature(c, f.creature, x, y, 0.7, t, 1);
       else if (f.kind === "log") {
         c.save();
         c.translate(x, y);

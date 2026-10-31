@@ -6,21 +6,24 @@
   let toastTimer, lastObjective, lastCash = -1, lastRoadKey = "", upgradeKey = "", trackKey = "", missionKey = "";
 
   UI.init = function () {
-    $("btnUpgrades").onclick = () => { CTC.audio.init(); $("drawer").classList.toggle("open"); upgradeKey = ""; };
+    $("btnUpgrades").onclick = () => { CTC.audio.init(); $("drawer").classList.toggle("open"); UI.togglePanel(false); upgradeKey = ""; };
     $("closeDrawer").onclick = () => $("drawer").classList.remove("open");
     $("btnBasket").onclick = () => { CTC.audio.init(); G.buyUpgrade("bag"); };
     $("btnFood").onclick = () => { CTC.audio.init(); UI.toggleFood(); };
     $("btnFoodTime").onclick = () => { CTC.audio.init(); G.buyUpgrade("foodTime"); };
     $("btnFoodQuality").onclick = () => { CTC.audio.init(); G.buyUpgrade("foodQuality"); };
-    $("playerBadge").onclick = () => UI.toggleMissions();
+    $("playerBadge").onclick = () => { UI.toggleTop(false); UI.toggleMissions(); };
     $("closeMissions").onclick = () => $("missionPanel").classList.remove("open");
+    // Releasing focus stops the browser leaving a highlight ring on the arrows after a tap.
+    $("panelTab").onclick = () => { UI.togglePanel(); $("panelTab").blur(); };
+    $("topTab").onclick = () => { UI.toggleTop(); $("topTab").blur(); };
     $("btnSound").onclick = () => {
       CTC.audio.init();
       CTC.audio.setMuted(!CTC.audio.muted);
       $("btnSound").classList.toggle("muted", CTC.audio.muted);
       try { localStorage.setItem("catchToCash.muted", CTC.audio.muted ? "1" : ""); } catch (e) { /* ignore */ }
     };
-    $("btnMenu").onclick = () => UI.toggleMenu();
+    $("btnMenu").onclick = () => { UI.togglePanel(false); UI.toggleMenu(); };
     $("btnResume").onclick = () => UI.toggleMenu(false);
     $("btnReset").onclick = () => {
       if (!confirm("Erase all progress and start over?")) return;
@@ -32,17 +35,33 @@
       if (G.loadSave() && !confirm("Start over? Your saved game will be erased.")) return;
       CTC.audio.init();
       G.newGame();
-      begin();
+      $("title").classList.add("hidden");
+      UI.showBriefing();
     };
     $("btnContinue").onclick = () => {
       CTC.audio.init();
-      begin();
-      if (G.s.built >= G.level().builds.length && !G.s.campaignDone) { G.mode = "complete"; UI.showComplete(); }
+      if (G.s.built >= G.level().builds.length) {
+        begin();
+        if (!G.s.campaignDone) { G.mode = "complete"; UI.showComplete(); }
+        return;
+      }
+      $("title").classList.add("hidden");
+      UI.showBriefing();
+    };
+    $("btnBrief").onclick = () => {
+      $("briefing").classList.add("hidden");
+      CTC.leap.stop();
+      if (briefIsLevelUp) {
+        $("hud").classList.remove("hidden");
+        G.mode = "play";
+      } else begin();
     };
     $("btnNext").onclick = () => {
       $("complete").classList.add("hidden");
+      const hasNext = !!CTC.LEVELS[G.s.level + 1];
       G.nextLevel();
-      showLevelBanner();
+      if (hasNext) UI.showBriefing();
+      else showLevelBanner();
     };
     try {
       if (localStorage.getItem("catchToCash.muted")) { CTC.audio.muted = true; $("btnSound").classList.add("muted"); }
@@ -51,6 +70,7 @@
     if (G.s && G.loadSave()) $("btnContinue").classList.remove("hidden");
 
     G.on("toast", UI.toast);
+    G.on("levelUp", UI.showLevelUp);
     G.on("complete", UI.showComplete);
     G.on("coinArrived", () => {
       const el = $("cash");
@@ -68,9 +88,44 @@
     showLevelBanner();
   }
 
+  // Pauses the game on a screen of its own: fish leaping into a river, and the missions to do next.
+  function showMissionScreen(kicker, title, text, rows) {
+    G.mode = "briefing";
+    $("hud").classList.add("hidden");
+    $("briefKicker").textContent = kicker;
+    $("briefTitle").textContent = title;
+    $("briefText").textContent = text;
+    $("briefList").innerHTML = rows.map((r) => '<li class="' + (r.done ? "done" : "") + '"><b>' + r.name + "</b><span>" + r.value + "</span></li>").join("");
+    $("briefing").classList.remove("hidden");
+    CTC.leap.start();
+    CTC.audio.play("fishJump");
+  }
+
+  UI.showLevelUp = function (level) {
+    if (G.mode !== "play") return;
+    const P = CTC.player, bonus = Math.round((P.priceBonus() - 1) * 1000) / 10;
+    briefIsLevelUp = true;
+    const rows = P.activeList().map((m) => ({ name: m.text, value: P.fmtValue(m, P.progress(m)) + "/" + P.fmtValue(m, m.n) }));
+    const goal = level < P.maxLevel ? "Missions to perform to reach level " + (level + 1) + ":" : "You reached the top level!";
+    showMissionScreen("Level up!", "Player Level " + level, "All fish now sell for " + bonus + "% more. " + goal, rows);
+  };
+
+  UI.showBriefing = function () {
+    const s = G.s, lv = G.level(), next = CTC.LEVELS[s.level + 1];
+    briefIsLevelUp = false;
+    Object.assign(G.cam, { z: 1, x: 0, y: 0 });
+    const ship = lv.builds[lv.builds.length - 1];
+    const builds = lv.builds.slice(0, -1).map((b, i) => ({ name: b.name, cost: b.cost, done: i < s.built }));
+    const rows = builds.concat(CTC.sea.steps(), ship).map((b) => ({ name: b.name, value: G.fmt(b.cost), done: b.done }));
+    showMissionScreen("Place " + (s.level + 1), lv.name, next ? "Missions to complete to reach " + next.name + ":" : "Missions to complete to conquer this place:", rows);
+  };
+
+  let briefIsLevelUp = false;
+
   function showLevelBanner() {
     const lv = G.level();
-    UI.toast(lv.name + ": " + lv.tagline);
+    // The goal box starts hidden, so new players get their first instruction here.
+    UI.toast(G.s.caught ? lv.name + ": " + lv.tagline : "Tap a school of fish in the water to throw your net!");
   }
 
   UI.toast = function (text) {
@@ -174,9 +229,29 @@
     btn.disabled = maxed || s.cash < cost;
   }
 
+  UI.togglePanel = function (force) {
+    const open = $("leftDock").classList.toggle("open", force);
+    $("panelTab").setAttribute("aria-expanded", open);
+    $("panelTab").setAttribute("aria-label", open ? "Hide options" : "Show options");
+  };
+
+  UI.toggleTop = function (force) {
+    const open = $("topDock").classList.toggle("open", force);
+    $("topTab").setAttribute("aria-expanded", open);
+    $("topTab").setAttribute("aria-label", open ? "Hide goal and player level" : "Show goal and player level");
+  };
+
   UI.toggleFood = function () {
     G.foodArmed = !G.foodArmed && G.canBuyFood();
+    // Clear the panel out of the way so that the water can be tapped.
+    if (G.foodArmed) UI.togglePanel(false);
   };
+
+  // A red dot on the closed tab means something in the panel is ready to use.
+  function renderPanelDot() {
+    const ready = ["btnBasket", "btnFoodTime", "btnFoodQuality"].some((id) => !$(id).disabled) || !$("upBadge").classList.contains("hidden");
+    $("panelDot").classList.toggle("hidden", !ready);
+  }
 
   function renderFood() {
     if (G.foodArmed && !G.canBuyFood()) G.foodArmed = false;
@@ -231,12 +306,14 @@
 
   function renderUpgrades() {
     const s = G.s;
-    const affordable = CTC.UPGRADES.filter((u) => s.upg[u.id] < u.max && !G.upgradeLocked(u) && s.cash >= G.upgradeCost(u)).length + G.catchers().filter(G.chipVisible).length;
+    const affordable = CTC.UPGRADES.filter((u) => s.upg[u.id] < u.max && !G.upgradeLocked(u) && s.cash >= G.upgradeCost(u)).length + G.catchers().filter(G.chipVisible).length + CTC.BELTS.filter(G.canBuyBelt).length + CTC.SEA.builds.filter(CTC.sea.canBuy).length;
     $("upBadge").textContent = affordable;
     $("upBadge").classList.toggle("hidden", !affordable);
     if (!$("drawer").classList.contains("open")) return;
     const key = CTC.UPGRADES.map((u) => s.upg[u.id] + (s.cash >= G.upgradeCost(u) ? "y" : "n") + (G.upgradeLocked(u) ? "l" : "")).join() +
-      G.catchers().map((m) => G.catcherLv(m) + (s.cash >= G.catcherCost(m) ? "y" : "n")).join();
+      G.catchers().map((m) => G.catcherLv(m) + (s.cash >= G.catcherCost(m) ? "y" : "n")).join() +
+      CTC.BELTS.map((b) => (G.has(b.id) ? "b" : G.canBuyBelt(b) ? "y" : G.beltLocked(b) ? "l" : "n")).join() +
+      (G.seaUnlocked() ? CTC.SEA.builds.map((b) => (s[b.id] ? "b" : CTC.sea.canBuy(b) ? "y" : "n")).join() : "");
     if (key === upgradeKey) return;
     upgradeKey = key;
     const list = $("upgradeList");
@@ -267,6 +344,20 @@
       row.appendChild(btn);
       list.appendChild(row);
     });
+    heading("Belts");
+    CTC.BELTS.filter((b) => !b.needs || G.cookingUnlocked()).forEach((b) => {
+      const built = G.has(b.id), locked = G.beltLocked(b);
+      const row = document.createElement("div");
+      row.className = "up";
+      row.innerHTML = "<b>" + b.name + "</b><small>" + (locked ? "Build the fireplace first" : b.desc) + "</small>";
+      const btn = document.createElement("button");
+      btn.className = "btn gold";
+      btn.textContent = built ? "Built" : G.fmt(G.beltCost(b.id));
+      btn.disabled = !G.canBuyBelt(b);
+      btn.onclick = () => { if (G.buyBelt(b.id)) upgradeKey = ""; };
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
     const upgradeRow = (u) => {
       const lvl = s.upg[u.id], maxed = lvl >= u.max, locked = G.upgradeLocked(u), cost = G.upgradeCost(u);
       const row = document.createElement("div");
@@ -281,11 +372,31 @@
       row.appendChild(btn);
       list.appendChild(row);
     };
-    heading("Your cart and belt");
+    heading("Your cart");
     CTC.UPGRADES.filter((u) => u.group === "cart").forEach(upgradeRow);
     if (G.cookingUnlocked()) {
       heading("Hot Food shop");
       CTC.UPGRADES.filter((u) => u.group === "hot").forEach(upgradeRow);
+    }
+    if (G.seaUnlocked()) {
+      heading("Sea Farm");
+      CTC.SEA.builds.forEach((b) => {
+        const row = document.createElement("div");
+        row.className = "up";
+        row.innerHTML = "<b>" + b.name + "</b><small>" + (CTC.sea.locked(b) ? "Build the " + b.needs.filter((n) => !s[n]).map((n) => CTC.SEA.builds.find((x) => x.id === n).name).join(" and ") + " first" : b.desc) + "</small>";
+        const btn = document.createElement("button");
+        btn.className = "btn gold";
+        btn.textContent = s[b.id] ? "Built" : G.fmt(CTC.sea.cost(b));
+        btn.disabled = !CTC.sea.canBuy(b);
+        btn.onclick = () => { if (CTC.sea.buy(b.id)) upgradeKey = ""; };
+        row.appendChild(btn);
+        list.appendChild(row);
+      });
+      CTC.UPGRADES.filter((u) => u.group === "sea").forEach(upgradeRow);
+      const prices = document.createElement("p");
+      prices.className = "none";
+      prices.textContent = "Cloud Kitchen prices: " + Object.keys(CTC.SEA.creatures).map((k) => CTC.SEA.creatures[k].name + " " + G.fmt(CTC.sea.value(k, "kitchen"))).join(", ");
+      list.appendChild(prices);
     }
     heading("Your gear");
     CTC.UPGRADES.filter((u) => !u.group).forEach(upgradeRow);
@@ -305,6 +416,7 @@
     renderPlayer();
     renderWood();
     renderFood();
+    renderPanelDot();
     renderUpgrades();
   };
 })();

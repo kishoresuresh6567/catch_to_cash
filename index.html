@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Catch 2 Cash by Silly Goose Studios</title>
+<script>
+  // Browsers reject the manifest when the game is opened as a local file.
+  if (location.protocol !== "file:") {
+    const manifest = document.createElement("link");
+    manifest.rel = "manifest";
+    manifest.href = "manifest.webmanifest";
+    document.head.appendChild(manifest);
+  }
+</script>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#07202f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Catch 2 Cash">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="wallet">
+      <div class="coin"></div>
+      <div>
+        <div id="cash">$0</div>
+        <div id="rate">$0.0/s</div>
+      </div>
+    </div>
+
+    <button id="btnBasket" class="btn gold"></button>
+    <button id="btnFood" class="btn gold"></button>
+    <div id="woodInfo"></div>
+    <div id="foodUps">
+      <button id="btnFoodTime" class="btn gold"></button>
+      <button id="btnFoodQuality" class="btn gold"></button>
+    </div>
+
+    <div id="goal">
+      <div id="levelName"></div>
+      <div id="objective"></div>
+      <div id="roadmap"></div>
+    </div>
+
+    <button id="playerBadge" class="btn">
+      <span id="playerLevel"></span>
+      <span class="xpbar"><i id="xpFill"></i></span>
+      <small id="xpText"></small>
+    </button>
+
+    <div id="missionTracker"></div>
+
+    <div id="buttons">
+      <button id="btnUpgrades" class="btn gold">Upgrades <span id="upBadge" class="badge hidden"></span></button>
+      <button id="btnSound" class="btn round" aria-label="Toggle sound">&#9835;</button>
+      <button id="btnMenu" class="btn round" aria-label="Menu">&#9776;</button>
+    </div>
+  </div>
+
+  <aside id="missionPanel">
+    <header><h2>Missions</h2><button id="closeMissions" class="btn round" aria-label="Close">&times;</button></header>
+    <p id="missionSummary"></p>
+    <div id="missionList"></div>
+  </aside>
+
+  <aside id="drawer">
+    <header><h2>Upgrades</h2><button id="closeDrawer" class="btn round" aria-label="Close">&times;</button></header>
+    <div id="upgradeList"></div>
+  </aside>
+
+  <div id="toast"></div>
+
+  <section id="title" class="overlay">
+    <div class="logo" aria-label="Catch 2 Cash"><span class="catch">Catch</span><span class="two">2</span><span class="cash">Cash</span></div>
+    <p class="tag">Throw the net. Sell the fish. Build the empire.</p>
+    <div class="col">
+      <button id="btnContinue" class="btn big gold hidden">Continue</button>
+      <button id="btnPlay" class="btn big">New Game</button>
+    </div>
+    <p class="help" id="helpMouse"><b>Click the water</b> to throw your net &nbsp;·&nbsp; <b>Click land or use WASD / arrows</b> to walk &nbsp;·&nbsp; <b>Space</b> auto-throws &nbsp;·&nbsp; <b>F</b> fish food &nbsp;·&nbsp; <b>Mouse wheel</b> zooms</p>
+    <p class="help hidden" id="helpTouch"><b>Tap the water</b> to throw your net &nbsp;·&nbsp; <b>Tap land</b> to walk &nbsp;·&nbsp; <b>Pinch</b> to zoom &nbsp;·&nbsp; <b>Drag</b> to look around</p>
+  </section>
+
+  <section id="menu" class="overlay hidden">
+    <div class="card">
+      <h2>Paused</h2>
+      <button id="btnResume" class="btn big gold">Resume</button>
+      <button id="btnReset" class="btn big danger">Reset all progress</button>
+    </div>
+  </section>
+
+  <section id="complete" class="overlay hidden">
+    <div class="card">
+      <div id="doneKicker">Place complete</div>
+      <h2 id="doneTitle"></h2>
+      <div id="doneStats"></div>
+      <p id="doneNext"></p>
+      <button id="btnNext" class="btn big gold"></button>
+    </div>
+  </section>
+</div>
+
+<div id="splash" class="waiting">
+  <button id="tapToStart" type="button">
+    <b>Tap to start</b>
+    <small>Sound on for the full show!</small>
+  </button>
+  <div class="sky"></div>
+  <div class="sea">
+    <div class="pond"></div>
+    <div class="reeds left"><i></i><i></i><i></i></div>
+    <div class="reeds right"><i></i><i></i><i></i></div>
+    <div class="lily a"></div>
+    <div class="lily b"></div>
+    <div class="lily c"></div>
+  </div>
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <svg id="gooseArt" viewBox="0 10 400 432" role="img" aria-label="A cute pink baby goose with a violet bow and black sunglasses sitting on a big yellow mountain">
+    <g class="mountain">
+      <path d="M-130 420 L30 215 L170 420Z" fill="#ffe27a"/>
+      <path d="M240 420 L375 200 L540 420Z" fill="#ffe27a"/>
+      <path d="M-60 420 L200 130 L460 420Z" fill="#ffd23f"/>
+      <path d="M200 130 L460 420 L240 420 L228 330 L252 280 L208 220Z" fill="#f4b90f"/>
+      <path d="M146 190 L200 130 L254 190 L232 178 L214 200 L192 176 L170 202Z" fill="#fff0a8"/>
+    </g>
+    <g class="goose">
+      <path d="M160 104 C148 100 142 90 146 82 C152 88 156 88 160 84 C162 92 168 96 176 98Z" fill="#ff8cc6"/>
+      <ellipse cx="186" cy="146" rx="10" ry="5" fill="#ff9a1f"/>
+      <ellipse cx="214" cy="146" rx="10" ry="5" fill="#ff9a1f"/>
+      <ellipse cx="197" cy="114" rx="39" ry="31" fill="#ff8cc6"/>
+      <ellipse cx="205" cy="124" rx="23" ry="17" fill="#ffc4e2"/>
+      <path class="wing" d="M164 110 C176 96 194 102 193 116 C184 130 168 126 164 110Z" fill="#f76fb4"/>
+      <g class="head">
+        <path d="M205 34 C200 26 200 20 205 16 C206 22 210 24 214 22 C212 27 212 31 214 35Z" fill="#ff8cc6"/>
+        <circle cx="208" cy="66" r="35" fill="#ff8cc6"/>
+        <ellipse cx="184" cy="80" rx="8" ry="5.5" fill="#ff5fa8" opacity=".6"/>
+        <ellipse cx="233" cy="82" rx="6" ry="4.5" fill="#ff5fa8" opacity=".6"/>
+        <path d="M214 80 C220 73 236 73 242 80 C238 88 220 90 214 80Z" fill="#ff9a1f"/>
+        <path d="M216 81 C222 85 234 85 240 80" stroke="#d96a00" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+        <path d="M224 85 C228 85 232 85 233 85 C233 92 225 92 224 85Z" fill="#ff5a6e"/>
+        <g class="shades">
+          <path d="M176 57 L241 55" stroke="#111" stroke-width="4" stroke-linecap="round"/>
+          <path d="M180 56 H206 C207 66 203 74 193 74 C184 74 179 66 180 56Z" fill="#111"/>
+          <path d="M212 55 H238 C239 65 235 73 225 73 C216 73 211 65 212 55Z" fill="#111"/>
+          <path class="glint" d="M186 60 L192 60 L187 68 L184 66Z" fill="#fff" opacity=".85"/>
+          <path class="glint" d="M218 59 L224 59 L219 67 L216 65Z" fill="#fff" opacity=".85"/>
+        </g>
+      </g>
+      <g class="bow">
+        <path d="M208 102 C194 90 182 90 181 96 C180 104 181 112 186 114 C192 115 202 109 208 102Z" fill="#8a3ffc"/>
+        <path d="M208 102 C222 90 234 90 235 96 C236 104 235 112 230 114 C224 115 214 109 208 102Z" fill="#8a3ffc"/>
+        <circle cx="208" cy="102" r="6.5" fill="#a56bff"/>
+      </g>
+    </g>
+    <g class="puffs" fill="#fff">
+      <circle cx="-90" cy="405" r="34"/><circle cx="-25" cy="415" r="42"/><circle cx="45" cy="420" r="34"/>
+      <circle cx="355" cy="420" r="34"/><circle cx="420" cy="414" r="44"/><circle cx="490" cy="405" r="34"/>
+    </g>
+  </svg>
+  <div id="studioName">Silly Goose Studios</div>
+  <div id="presents">
+    <small>presents</small>
+    <div class="logo" aria-label="Catch 2 Cash">
+      <div class="wordslot left">
+        <svg class="fish" viewBox="-70 -36 140 72" aria-hidden="true">
+            <path d="M-34 0 L-66 -28 Q-56 0 -66 28Z" fill="#127a33"/>
+            <path d="M-14 -22 Q6 -44 26 -20Z" fill="#127a33"/>
+            <path d="M-46 0 C-24 -32 34 -32 62 0 C34 30 -24 30 -46 0Z" fill="#1fae4b"/>
+            <path d="M-34 8 C-10 26 36 24 56 6 C30 14 -8 14 -34 8Z" fill="#fff" opacity=".55"/>
+            <ellipse cx="4" cy="10" rx="12" ry="6" fill="#127a33"/>
+            <circle cx="38" cy="-7" r="9" fill="#fff"/>
+            <circle cx="40" cy="-7" r="4.5" fill="#14202b"/>
+          </svg>
+        <i class="puff"></i>
+        <span class="catch">Catch</span>
+      </div>
+      <div class="wordslot middle">
+        <svg class="net net-back" viewBox="-60 -60 120 120" aria-hidden="true">
+          <g class="net-sway">
+            <path d="M-50 -30 C-30 -44 30 -44 50 -30 C54 2 36 36 8 50 Q0 55 -8 50 C-36 36 -54 2 -50 -30Z" fill="url(#netBackMesh)"/>
+            <path d="M-50 -30 C-30 -44 30 -44 50 -30 C54 2 36 36 8 50 Q0 55 -8 50 C-36 36 -54 2 -50 -30Z" fill="rgba(20,60,80,.16)"/>
+          </g>
+          <path d="M-50 -30 C-30 -44 30 -44 50 -30" fill="none" stroke="#7a5526" stroke-width="5.5" stroke-linecap="round"/>
+          <path d="M-50 -30 C-30 -44 30 -44 50 -30" fill="none" stroke="#b08a4e" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <span class="two">2</span>
+        <svg class="net net-front" viewBox="-60 -60 120 120" aria-hidden="true">
+          <defs>
+            <pattern id="netMesh" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <path d="M0 0 H10 M0 0 V10" stroke="#fbf3df" stroke-width="1.15" fill="none"/>
+              <circle cx="0" cy="0" r="1.15" fill="#e5d3a6"/>
+            </pattern>
+            <pattern id="netBackMesh" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <path d="M0 0 H10 M0 0 V10" stroke="#c9bb94" stroke-width=".9" fill="none" opacity=".75"/>
+            </pattern>
+            <linearGradient id="netPole" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#b57a3c"/>
+              <stop offset=".45" stop-color="#8c5a2b"/>
+              <stop offset="1" stop-color="#5e3a18"/>
+            </linearGradient>
+            <linearGradient id="netSheen" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fff" stop-opacity=".22"/>
+              <stop offset=".6" stop-color="#fff" stop-opacity="0"/>
+              <stop offset="1" stop-color="#0a3c55" stop-opacity=".22"/>
+            </linearGradient>
+          </defs>
+          <g class="net-pole">
+            <g transform="translate(50 -30) rotate(35.6)">
+              <rect x="-3.6" y="-560" width="7.2" height="548" fill="url(#netPole)"/>
+              <rect x="-4.6" y="-26" width="9.2" height="17" rx="2" fill="#6e4426"/>
+              <path d="M-4.6 -22 H4.6 M-4.6 -18 H4.6 M-4.6 -14 H4.6" stroke="#e8d7ad" stroke-width="1.5"/>
+              <rect x="-4" y="-11" width="8" height="10" rx="1.5" fill="#9aa5ad"/>
+              <rect x="-4" y="-9" width="3" height="6" fill="#d5dde2"/>
+            </g>
+          </g>
+          <g class="net-sway">
+            <path d="M-50 -30 C-54 2 -36 36 -8 50 Q0 55 8 50 C36 36 54 2 50 -30 C30 -18 -30 -18 -50 -30Z" fill="url(#netMesh)"/>
+            <path d="M-50 -30 C-54 2 -36 36 -8 50 Q0 55 8 50 C36 36 54 2 50 -30 C30 -18 -30 -18 -50 -30Z" fill="url(#netSheen)"/>
+            <path d="M-50 -30 C-54 2 -36 36 -8 50 Q0 55 8 50 C36 36 54 2 50 -30" fill="none" stroke="#efe3c4" stroke-width="1.8"/>
+            <path d="M-6 51 Q0 62 6 51" fill="none" stroke="#e5d3a6" stroke-width="2.2" stroke-linecap="round"/>
+          </g>
+          <path d="M-50 -30 C-30 -18 30 -18 50 -30" fill="none" stroke="#7a5526" stroke-width="6.5" stroke-linecap="round"/>
+          <path d="M-50 -30 C-30 -18 30 -18 50 -30" fill="none" stroke="#d9bd7f" stroke-width="4" stroke-linecap="round"/>
+          <path d="M-50 -30 C-30 -18 30 -18 50 -30" fill="none" stroke="#8f6c35" stroke-width="1.6" stroke-dasharray="2.4 3.4"/>
+          <g class="net-drips" fill="#8fe3f2">
+            <path d="M-20 42 q-3 5 0 7 q3 -2 0 -7Z"/>
+            <path d="M5 54 q-3.5 6 0 8 q3.5 -2 0 -8Z"/>
+            <path d="M24 38 q-3 5 0 7 q3 -2 0 -7Z"/>
+          </g>
+        </svg>
+      </div>
+      <div class="wordslot right">
+        <svg class="fish" viewBox="-70 -36 140 72" aria-hidden="true">
+            <path d="M-34 0 L-66 -28 Q-56 0 -66 28Z" fill="#d99a00"/>
+            <path d="M-14 -22 Q6 -44 26 -20Z" fill="#d99a00"/>
+            <path d="M-46 0 C-24 -32 34 -32 62 0 C34 30 -24 30 -46 0Z" fill="#ffd400"/>
+            <path d="M-34 8 C-10 26 36 24 56 6 C30 14 -8 14 -34 8Z" fill="#fff" opacity=".55"/>
+            <ellipse cx="4" cy="10" rx="12" ry="6" fill="#d99a00"/>
+            <circle cx="38" cy="-7" r="9" fill="#fff"/>
+            <circle cx="40" cy="-7" r="4.5" fill="#14202b"/>
+          </svg>
+        <i class="puff"></i>
+        <span class="cash">Cash</span>
+      </div>
+    </div>
+    <i class="ripple net-splash"></i>
+    <i class="ripple fish-splash a"></i>
+    <i class="ripple fish-splash b"></i>
+  </div>
+</div>
+
+<div id="rotate" class="hidden">
+  <div class="phone"></div>
+  <p>Turn your phone sideways to play</p>
+</div>
+
+<script src="js/levels.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/art.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+<script src="js/splash.js"></script>
+</body>
+</html>

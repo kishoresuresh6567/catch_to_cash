@@ -1,0 +1,11 @@
+{
+  "name": "catch-to-cash",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Catch fish, sell them, and automate your way to a fishing empire.",
+  "scripts": {
+    "start": "start \"\" index.html",
+    "dev": "npm start",
+    "serve": "node server.js"
+  }
+}

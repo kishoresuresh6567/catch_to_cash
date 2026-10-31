@@ -1,0 +1,16 @@
+{
+  "name": "Catch 2 Cash",
+  "short_name": "Catch 2 Cash",
+  "description": "Catch fish, sell them, and automate your way to a fishing empire. By Silly Goose Studios.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#07202f",
+  "theme_color": "#07202f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

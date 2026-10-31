@@ -1,12 +1,14 @@
 /* Small local server for trying the game on a phone on the same Wi-Fi.
-   Run with: npm run serve */
+   Run with: npm run serve
+   This is only for testing. It stays out of the main folder because Vercel would
+   otherwise run a root server.js as the website, instead of serving the game files. */
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
 const PORT = Number(process.env.PORT) || 8080;
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, "..");
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".png": "image/png", ".ttf": "font/ttf", ".webmanifest": "application/manifest+json"

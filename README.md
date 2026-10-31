@@ -56,5 +56,5 @@ Open `js/levels.js`, copy a block in `CTC.LEVELS`, and edit it. The comment at t
 - `js/main.js`: input, camera and the game loop
 - `js/splash.js`: the launch sequence (the goose and pond art are in `index.html`, the animation in `css/style.css`)
 - `manifest.webmanifest`, `sw.js`, `icons/`: installing and offline play
-- `server.js`: local server for phone testing
+- `tools/local-server.js`: local server for phone testing
 - `fonts/`: Righteous for the studio name and Bungee for the game logo (both SIL Open Font License, see the license files there)

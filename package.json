@@ -6,6 +6,6 @@
   "scripts": {
     "start": "start \"\" index.html",
     "dev": "npm start",
-    "serve": "node server.js"
+    "serve": "node tools/local-server.js"
   }
 }

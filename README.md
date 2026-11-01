@@ -31,9 +31,10 @@ Double-click `index.html`. It needs no install, server, or internet connection, 
 | Build | Stand on the glowing pad; cash drains into it |
 | Level up a crane or trawler | Click the blue arrow above it, or use the Upgrades panel |
 | Upgrades | In the left panel, or U |
+| Move buildings (free) | Move Buildings button in the left panel, or B. Drag a building to its new spot, or tap it and then tap the spot. The stall, crate, fireplace, Hot Food shop, Cloud Kitchen, Hotel and cranes can all move, and belts and queues follow them. Cranes stay on the shore. Press Done moving to finish |
 | Goal and player level | Arrow at the top centre, or T |
 | Missions | Player Level badge at the top, or M |
-| Zoom | Pinch on a phone, mouse wheel on a computer; drag to look around. Each place starts zoomed in on your character. Zoom all the way out to see the whole map |
+| Zoom | Pinch on a phone, mouse wheel on a computer; drag to look around. Each place starts zoomed in on your character. Zoom all the way out to see the whole map, which reaches well beyond the first view on every side |
 | Basket, fish food, missions, upgrades, sound and pause | Arrow on the left edge, or O |
 | Pause | Menu button in the left panel, or Esc |
 
@@ -63,6 +64,7 @@ Open `js/levels.js`, copy a block in `CTC.LEVELS`, and edit it. The comment at t
 - `js/3d/stage.js`: camera, light, terrain and water
 - `js/3d/people.js`: the people, their clothes and their animations
 - `js/3d/models.js`: fish, sea creatures, buildings, boats and trees, built from code
+- `js/layout.js`: where buildings stand, moving them, and what follows them
 - `js/art.js`: the small 2D pieces (badges, buttons, fish icons) and how each person looks
 - `js/vendor/`: generated files, the 3D engine and the people. Don't edit these. To remake them, follow the note at the top of `tools/build-3d-assets.mjs`
 - `assets/CREDITS.txt`: credits and licenses for the models and the 3D engine

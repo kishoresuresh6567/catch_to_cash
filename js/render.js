@@ -16,7 +16,7 @@
     M.initBanks();
     thrown = M.thrownNet();
     particles = M.particles();
-    ["pad", "firePad", "hotPad", "stall", "shop", "kitchen", "hotel", "aim", "food"].forEach((k) => { rings[k] = M.ring("#ffffff"); });
+    ["pad", "firePad", "hotPad", "stall", "shop", "kitchen", "hotel", "aim", "food", "move"].forEach((k) => { rings[k] = M.ring("#ffffff"); });
     G.on("levelChanged", () => { builtFor = null; });
     People.load().catch((e) => console.error("Could not load the people", e));
   };
@@ -69,13 +69,11 @@
       const stump = add(M.stump(T.decor), tr.x, tr.y);
       w.trees.set(tr, { g, stump, base: g.scale.x });
     });
-    [["chain", L.beltPath], ["feedBelt", L.feedBeltPath], ["hotBelt", L.hotBeltPath]].forEach(([id, P]) => {
-      const b = M.belt();
-      M.layBelt(b, P, 16);
-      b.position.y = St.groundY(P[0][0], P[0][1]);
-      root.add(b);
-      w.belts[id] = b;
+    ["chain", "feedBelt", "hotBelt"].forEach((id) => {
+      w.belts[id] = M.belt();
+      root.add(w.belts[id]);
     });
+    w.layoutV = -1;
     w.plates = [];
     for (let i = 0; i < 6; i++) {
       const plate = new THREE.Mesh(new THREE.CylinderGeometry(10, 8, 1.4, 16), new THREE.MeshStandardMaterial({ color: "#f4f1ea", roughness: 0.3 }));
@@ -138,11 +136,11 @@
     // Stall and shop staff face their customers.
     for (let i = 0; i < G.sellerCount(); i++) {
       const o = (stallOwners[i] = stallOwners[i] || {});
-      person(o, Art.sellerLooks[i], L.stall.x + SELLER_X[i], L.stall.y - 55, { yaw: 0, anim: s.stock.length && G.customers.length ? "Idle_Talking_Loop" : "Idle_Loop" });
+      person(o, Art.sellerLooks[i], L.stall.x + SELLER_X[i], L.stall.y - 50, { yaw: 0, anim: s.stock.length && G.customers.length ? "Idle_Talking_Loop" : "Idle_Loop" });
     }
     if (s.fire) for (let i = 0; i < G.hotSellerCount(); i++) {
       const o = (shopOwners[i] = shopOwners[i] || {});
-      person(o, Art.sellerLooks[i], L.shop.x + SHOP_X[i], L.shop.y - 54, { yaw: 0, anim: s.cookedStock.length && G.diners.length ? "Idle_Talking_Loop" : "Idle_Loop" });
+      person(o, Art.sellerLooks[i], L.shop.x + SHOP_X[i], L.shop.y - 49, { yaw: 0, anim: s.cookedStock.length && G.diners.length ? "Idle_Talking_Loop" : "Idle_Loop" });
     }
     G.customers.concat(G.diners).forEach((cu) => {
       if (cu.look.beard === undefined) cu.look.beard = !cu.look.style && Math.random() < 0.3;
@@ -246,10 +244,39 @@
     });
   }
 
+  // Where the building being moved would land right now.
+  function heldSpot() {
+    if (!G.moveMode || !G.moveSel || !G.moveGhost) return null;
+    const sel = G.moveItems().find((o) => o.id === G.moveSel);
+    return sel ? G.placeAt(sel, G.moveGhost.x, G.moveGhost.y) : null;
+  }
+
   /* ---------- buildings and boats ---------- */
   const BELT_RAILS = ["#5e6b78", "#7f8e9c", "#a7b7c4", "#d4dde4", "#ffc531"];
   function syncBuildings(t) {
     const s = G.s, w = world;
+    // A picked-up building follows the pointer until it's put down.
+    const held = heldSpot();
+    const place = (id, obj, o, back) => {
+      const here = held && G.moveSel === id ? held : o;
+      at(obj, here.x, here.y - back);
+    };
+    place("crate", w.crate, L.crate, 20);
+    place("stall", w.stall, L.stall, 25);
+    place("shop", w.shop, L.shop, 28);
+    place("fire", w.fire, L.fire, 0);
+    place("kitchen", w.kitchen, CTC.SEA.venues.kitchen, 52);
+    place("hotel", w.hotel, CTC.SEA.venues.hotel, 56);
+    if (w.layoutV !== G.layoutV) {
+      w.layoutV = G.layoutV;
+      [["chain", L.beltPath], ["feedBelt", L.feedBeltPath], ["hotBelt", L.hotBeltPath]].forEach(([id, P]) => {
+        const b = w.belts[id];
+        b.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); if (o.material !== b.rails && !o.material.shared) o.material.dispose(); } });
+        b.clear();
+        M.layBelt(b, P, 16);
+        b.position.y = St.groundY(P[0][0], P[0][1]);
+      });
+    }
     w.shop.visible = !!s.fire;
     w.fire.visible = !!s.fire;
     w.fence.visible = !!s.fence;
@@ -315,7 +342,8 @@
       }
       const pop = Art.popScale(m.pop);
       if (m.type === "rig") {
-        at(g, m.x, m.y);
+        const here = held && G.moveSel === "m" + m.index ? held : m;
+        at(g, here.x, here.y);
         g.scale.setScalar(pop);
         g.winch.rotation.z = t * (m.dip > 0 ? 7 : 1.2);
         const drop = 26 + m.dip * 64;
@@ -426,6 +454,13 @@
       if (G.foodArmed) set(rings.aim, a.x, a.y, 34, a.reach ? "#ffe0a3" : "#a08860", 0.25, 0, 0.5);
       else set(rings.aim, a.x, a.y, G.netRadius(), "#ffffff", a.reach ? 0.08 : 0.02, 0, 0.5);
     }
+    const spot = heldSpot();
+    if (spot) {
+      const sel = G.moveItems().find((o) => o.id === G.moveSel);
+      {
+        set(rings.move, spot.x, spot.y, Math.max(sel.box[2] - sel.box[0], sel.box[3] - sel.box[1]) * 0.6, spot.ok ? "#36c26b" : "#e4574c", 0.3);
+      }
+    }
     const f = G.food;
     if (f) {
       set(rings.food, f.x, f.y, 26 + ((t * 0.5) % 1) * 90, "#ffe0a3", 0, 0, 0.6);
@@ -531,7 +566,13 @@
         const q = St.project(L.hotPad.x, L.hotPad.y, 0);
         plaque(q.x, q.y, hot.name, G.fmt(hot.cost), "rgba(90,40,15,.9)");
       }
-      if (G.mode === "play") {
+      if (G.mode === "play" && G.moveMode) {
+        G.moveItems().forEach((o) => {
+          const held = o.id === G.moveSel && heldSpot();
+          const q = St.project(held ? held.x : o.x, held ? held.y : o.y, o.h);
+          Art.badge(c, q.x, q.y, "\u2725 " + o.name, o.id === G.moveSel ? "#c9860a" : "#1a6fd0");
+        });
+      } else if (G.mode === "play") {
         G.stallChips().forEach((b, i) => {
           const q = chipScreen(b), y = q.y + Math.sin(t * 5 + i) * 1.5;
           if (b.text) Art.badge(c, q.x, y, b.text, "#1a8f4a");
@@ -595,7 +636,7 @@
       vignette = el;
     }
     c.drawImage(vignette, 0, 0, W, H);
-    if (G.mode === "play") drawGuideArrow(t);
+    if (G.mode === "play" && !G.moveMode) drawGuideArrow(t);
     c.textAlign = "center";
     G.floats.forEach((f) => {
       const q = St.project(f.x, f.y, 34);
@@ -633,6 +674,19 @@
 
   /* ---------- tapping things that stand above the ground ---------- */
   const ARROW_HIT = 26;
+  // The building shown at this spot on screen: its label, or else the building itself,
+  // with whatever stands nearest the camera first.
+  R.moveItemAt = function (sx, sy) {
+    const items = G.moveItems().sort((a, b) => b.y - a.y);
+    return items.find((o) => {
+      const q = St.project(o.x, o.y, o.h);
+      return Math.abs(sx - q.x) < 70 && Math.abs(sy - q.y) < 14;
+    }) || items.find((o) => {
+      const base = St.project(o.x, o.y + o.box[3], 0), top = St.project(o.x, o.y + o.box[1], o.h - 25);
+      const half = ((o.box[2] - o.box[0]) / 2) * St.pixelsPerUnit(o.x, o.y);
+      return Math.abs(sx - base.x) < half && sy <= base.y && sy >= top.y;
+    });
+  };
   R.chipAt = function (sx, sy) {
     const hit = G.catchers().find((m) => {
       if (!G.chipVisible(m)) return false;

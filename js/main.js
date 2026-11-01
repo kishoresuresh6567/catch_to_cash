@@ -32,18 +32,20 @@
 
   /* ---------- camera ---------- */
   const MAX_ZOOM = 4;
+  const MIN_ZOOM = Math.max(L.width / (L.bounds.x1 - L.bounds.x0), L.height / (L.bounds.y1 - L.bounds.y0));
   CTC.START_ZOOM = 1.4;
   const FOLLOW_DELAY = 2500;
   function clampCam() {
     const cam = G.cam;
-    cam.x = Math.max(0, Math.min(L.width - L.width / cam.z, cam.x));
-    cam.y = Math.max(0, Math.min(L.height - L.height / cam.z, cam.y));
+    const B = L.bounds;
+    cam.x = Math.max(B.x0, Math.min(B.x1 - L.width / cam.z, cam.x));
+    cam.y = Math.max(B.y0, Math.min(B.y1 - L.height / cam.z, cam.y));
   }
   // Zooms while keeping the point under (sx, sy) in the same place on screen.
   function zoomAt(factor, sx, sy) {
     const cam = G.cam;
     const wx = cam.x + sx / cam.z, wy = cam.y + sy / cam.z;
-    cam.z = Math.max(1, Math.min(MAX_ZOOM, cam.z * factor));
+    cam.z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cam.z * factor));
     cam.x = wx - sx / cam.z;
     cam.y = wy - sy / cam.z;
     clampCam();
@@ -51,12 +53,28 @@
   function touchedCamera() { G.cam.heldUntil = performance.now() + FOLLOW_DELAY; }
   function followPlayer() {
     const cam = G.cam, p = G.player;
-    if (cam.z <= 1 || G.mode !== "play" || performance.now() < cam.heldUntil) return;
+    if (G.moveMode || cam.z <= MIN_ZOOM || G.mode !== "play" || performance.now() < cam.heldUntil) return;
     cam.x += (p.x - L.width / (2 * cam.z) - cam.x) * 0.08;
     cam.y += (p.y - 30 - L.height / (2 * cam.z) - cam.y) * 0.08;
     clampCam();
   }
-  CTC.camera = { zoomAt };
+  // Stepping back while moving buildings, so they're all in view, then returning afterwards.
+  let beforeMoving = null;
+  function forMoving(on) {
+    const cam = G.cam;
+    if (on) {
+      beforeMoving = cam.z;
+      cam.z = Math.min(cam.z, 0.85);
+      cam.x = 850 - L.width / (2 * cam.z);
+      cam.y = 400 - L.height / (2 * cam.z);
+      clampCam();
+    } else if (beforeMoving) {
+      cam.z = beforeMoving;
+      cam.heldUntil = 0;
+      beforeMoving = null;
+    }
+  }
+  CTC.camera = { zoomAt, forMoving };
 
   /* ---------- pointer: tap acts, drag pans, two fingers pinch ---------- */
   const TAP_SLOP = 10;
@@ -73,6 +91,8 @@
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (touches.size === 1) {
       drag = { x: e.clientX, y: e.clientY, sx: toStage(e).x, sy: toStage(e).y, moved: false };
+      // In move mode, pressing on a building grabs it instead of panning the view.
+      if (G.moveMode && G.mode === "play") drag.item = CTC.render.moveItemAt(drag.sx, drag.sy);
     } else if (touches.size === 2) {
       drag = null;
       pinch = pinchInfo();
@@ -88,6 +108,7 @@
     if (e.pointerType === "mouse" && G.s && G.player) {
       const w = toWorld(e);
       G.aim = { x: w.x, y: w.y, water: G.inWater(w.x, w.y), reach: Math.hypot(w.x - G.player.x, w.y - G.player.y) <= 310 };
+      if (G.moveSel && !touches.has(e.pointerId)) G.moveGhost = w;
     }
     if (!touches.has(e.pointerId)) return;
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -104,11 +125,14 @@
     } else if (drag) {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (!drag.moved && Math.hypot(dx, dy) > TAP_SLOP) drag.moved = true;
-      if (drag.moved) {
+      if (drag.moved && drag.item) {
+        G.moveSel = drag.item.id;
+        G.moveGhost = toWorld(e);
+      } else if (drag.moved) {
         G.cam.x -= (dx * cssToStage) / G.cam.z;
         G.cam.y -= (dy * cssToStage) / G.cam.z;
         clampCam();
-        if (G.cam.z > 1) touchedCamera();
+        if (G.cam.z > MIN_ZOOM) touchedCamera();
         drag.x = e.clientX;
         drag.y = e.clientY;
       }
@@ -120,7 +144,12 @@
     touches.delete(e.pointerId);
     if (touches.size < 2) pinch = null;
     const wasTap = drag && !drag.moved;
+    const dropped = drag && drag.moved && drag.item;
     drag = null;
+    if (dropped) {
+      if (cancelled || !G.moveDrop(toWorld(e).x, toWorld(e).y)) { G.moveSel = null; G.moveGhost = null; }
+      return;
+    }
     if (wasTap && !cancelled && touches.size === 0) {
       tap(e);
     }
@@ -128,6 +157,11 @@
   // Things standing above the ground are found by where they appear on screen.
   function tap(e) {
     const s = toStage(e);
+    if (G.moveMode) {
+      const w = CTC.stage.pick(s.x, s.y);
+      if (G.mode === "play") G.moveTap(w.x, w.y, CTC.render.moveItemAt(s.x, s.y));
+      return;
+    }
     const hit = CTC.render.chipAt(s.x, s.y);
     if (hit) { G.clickChip(hit); return; }
     const tree = CTC.render.treeAt(s.x, s.y);
@@ -159,6 +193,7 @@
     if (e.code === "KeyM" && G.mode === "play") CTC.ui.toggleMissions();
     if (e.code === "KeyO" && G.mode === "play") CTC.ui.togglePanel();
     if (e.code === "KeyT" && G.mode === "play") CTC.ui.toggleTop();
+    if (e.code === "KeyB" && G.mode === "play") G.toggleMove();
     if (e.code === "KeyU" && G.mode === "play") document.getElementById("btnUpgrades").click();
     if (e.code === "Escape" && (G.mode === "play" || G.mode === "paused")) CTC.ui.toggleMenu();
   });

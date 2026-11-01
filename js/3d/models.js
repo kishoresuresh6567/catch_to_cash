@@ -595,7 +595,7 @@
     stockTray(g, 172, 34, 0, 44, 0);
     [[-86, -38, 158], [86, -38, 158], [-86, 24, 140], [86, 24, 140]].forEach(([x, z, h]) => box(g, 7, h, 7, m.woodDark, x, 0, z));
     const tex = stripes(T.awning, "#fff8e7", 12);
-    awning(g, 208, 94, 22, 0, 166, -8, tex);
+    awning(g, 208, 82, 22, 0, 166, -14, tex);
     const signBoard = sign(g, "FRESH FISH", "#16324a", "#ffc531", 112, 28, 0, 172, -52, null);
     box(g, 3, 28, 3, m.woodDark, -46, 148, -52);
     box(g, 3, 28, 3, m.woodDark, 46, 148, -52);
@@ -607,12 +607,12 @@
       const flag = new THREE.Mesh(new THREE.ConeGeometry(4, 9, 3), new THREE.MeshStandardMaterial({ color: colors[i % 5], roughness: 0.9 }));
       flag.rotation.x = Math.PI;
       flag.scale.z = 0.2;
-      flag.position.set(-82 + i * 15, 138 - Math.sin((i / 11) * Math.PI) * 9, 26);
+      flag.position.set(-82 + i * 15, 138 - Math.sin((i / 11) * Math.PI) * 9, 24);
       fancy.add(flag);
     }
     [-86, 86].forEach((x) => {
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(6, 10, 8), m.lit);
-      lamp.position.set(x, 128, 30);
+      lamp.position.set(x, 128, 26);
       fancy.add(lamp);
     });
     const side = new THREE.Group();
@@ -631,14 +631,14 @@
     const plain = counter.material;
     g.setUpgraded = (on) => { counter.material = on ? purple : plain; };
     box(g, 160, 4, 40, m.plank, 0, 38, 0);
-    [[-72, -30, 138], [72, -30, 138], [-72, 22, 124], [72, 22, 124]].forEach(([x, z, h]) => box(g, 7, h, 7, m.woodDark, x, 0, z));
-    awning(g, 174, 78, 18, 0, 144, -6, stripes("#d9412f", "#ffc531", 10));
+    [[-72, -30, 138], [72, -30, 138], [-72, 18, 124], [72, 18, 124]].forEach(([x, z, h]) => box(g, 7, h, 7, m.woodDark, x, 0, z));
+    awning(g, 174, 66, 18, 0, 144, -12, stripes("#d9412f", "#ffc531", 10));
     sign(g, "HOT FOOD", "#5a1f12", "#ffd34d", 96, 26, 0, 148, -46, null);
     const fancy = new THREE.Group();
     g.add(fancy);
     [-70, 70].forEach((x) => {
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(6, 10, 8), m.lit);
-      lamp.position.set(x, 118, 24);
+      lamp.position.set(x, 118, 20);
       fancy.add(lamp);
     });
     g.fancy = fancy;
@@ -1115,13 +1115,13 @@
       return Math.abs(y - (L.queue.y + 3)) > 40 || x < 860;
     };
     const rockMat = new THREE.MeshStandardMaterial({ map: materials().stone.map, roughness: 1, flatShading: true, color: T.decor === "pine" ? "#b8c6d2" : "#9a8f80" });
-    const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), rockMat, 70);
+    const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), rockMat, 150);
     rocks.castShadow = true;
     rocks.receiveShadow = true;
     const o = new THREE.Object3D();
     let n = 0;
-    for (let i = 0; i < 400 && n < 70; i++) {
-      const y = rnd() * 900 - 90;
+    for (let i = 0; i < 700 && n < 150; i++) {
+      const y = rnd() * 2000 - 640;
       const x = G.shoreX(y) + (rnd() - 0.45) * 46;
       if (G.onPier(x, y) || Math.abs(y - 360) < 50) continue;
       o.position.set(x, St.groundY(x, y) - 0.5, y);
@@ -1146,12 +1146,12 @@
     }
     const tuft = THREE.mergeGeometries(tuftParts);
     const snowy = T.decor === "pine";
-    const count = St.low ? 500 : 1400;
+    const count = St.low ? 1500 : 5200;
     const grass = new THREE.InstancedMesh(tuft, new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), count);
     const col = new THREE.Color();
     n = 0;
-    for (let i = 0; i < count * 3 && n < count; i++) {
-      const x = 770 + rnd() * 1000, y = rnd() * 1200 - 240;
+    for (let i = 0; i < count * 2 && n < count; i++) {
+      const x = 770 + rnd() * 1560, y = rnd() * 1900 - 600;
       if (x < 1290 && y > 0 && y < 720 && !free(x, y)) continue;
       o.position.set(x, St.groundY(x, y) - 0.5, y);
       o.rotation.set(0, rnd() * 6, 0);
@@ -1168,16 +1168,24 @@
     // Background trees on the hills give the map depth.
     const backdrop = new THREE.Group();
     const treeRnd = seeded(seed + 5);
-    for (let i = 0; i < 22; i++) {
-      const x = 1320 + treeRnd() * 520, y = treeRnd() * 1100 - 220;
+    for (let i = 0; i < 32; i++) {
+      const x = 2330 + treeRnd() * 700, y = treeRnd() * 2600 - 750;
       const tr = M.tree(T.decor, treeRnd, i);
       tr.position.set(x, St.groundY(x, y), y);
       tr.scale.setScalar(0.8 + treeRnd() * 0.6);
       tr.rotation.y = treeRnd() * 6;
       backdrop.add(tr);
     }
-    for (let i = 0; i < 16; i++) {
-      const x = 720 + treeRnd() * 900, y = -60 - treeRnd() * 280;
+    for (let i = 0; i < 24; i++) {
+      const x = 720 + treeRnd() * 1700, y = -570 - treeRnd() * 360;
+      const tr = M.tree(T.decor, treeRnd, i);
+      tr.position.set(x, St.groundY(x, y), y);
+      tr.scale.setScalar(0.8 + treeRnd() * 0.6);
+      tr.rotation.y = treeRnd() * 6;
+      backdrop.add(tr);
+    }
+    for (let i = 0; i < 14; i++) {
+      const x = 640 + treeRnd() * 1800, y = 1290 + treeRnd() * 240;
       const tr = M.tree(T.decor, treeRnd, i);
       tr.position.set(x, St.groundY(x, y), y);
       tr.scale.setScalar(0.8 + treeRnd() * 0.6);
@@ -1190,8 +1198,8 @@
 
   // Snowflakes or petals falling through the whole view.
   M.weather = function (kind) {
-    const n = 900, pos = new Float32Array(n * 3), seed = new Float32Array(n);
-    for (let i = 0; i < n; i++) { pos[i * 3] = Math.random() * 1700 - 200; pos[i * 3 + 1] = Math.random() * 500; pos[i * 3 + 2] = Math.random() * 1000 - 100; seed[i] = Math.random() * 6; }
+    const n = St.low ? 1200 : 2600, pos = new Float32Array(n * 3), seed = new Float32Array(n);
+    for (let i = 0; i < n; i++) { pos[i * 3] = Math.random() * 4000 - 1000; pos[i * 3 + 1] = Math.random() * 500; pos[i * 3 + 2] = Math.random() * 2600 - 800; seed[i] = Math.random() * 6; }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("aS", new THREE.BufferAttribute(seed, 1));
@@ -1204,7 +1212,7 @@
           vec3 p = position;
           p.y = mod(p.y - uT * uDrop * (0.7 + fract(aS) * 0.6), 500.0);
           p.x += sin(uT * 0.8 + aS) * 22.0 + uT * 7.0 * fract(aS * 3.0);
-          p.x = mod(p.x + 200.0, 1700.0) - 200.0;
+          p.x = mod(p.x + 1000.0, 4000.0) - 1000.0;
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
           gl_Position = projectionMatrix * mv;
           gl_PointSize = (3.0 + fract(aS * 7.0) * 3.0) * 1500.0 / -mv.z;

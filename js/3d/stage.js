@@ -14,7 +14,7 @@
   /* ---------- heights ---------- */
   // Rolling hills past the edges of the playable map.
   function hills(x, y) {
-    const out = smooth(1290, 1800, x) + smooth(-20, -500, y) * smooth(600, 1100, x) + smooth(760, 1100, y) * smooth(600, 1100, x);
+    const out = smooth(2320, 2800, x) + smooth(-560, -1000, y) * smooth(600, 1100, x) + smooth(1280, 1640, y) * smooth(600, 1100, x);
     if (out <= 0) return 0;
     return out * (150 + 70 * Math.sin(x * 0.006 + y * 0.004) + 40 * Math.sin(x * 0.013 - y * 0.009) + 16 * Math.sin(y * 0.031 + x * 0.02));
   }
@@ -34,14 +34,14 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     St.renderer = renderer;
     const scene = (St.scene = new THREE.Scene());
-    St.camera = new THREE.PerspectiveCamera(FOV, L.width / L.height, 20, 6000);
+    St.camera = new THREE.PerspectiveCamera(FOV, L.width / L.height, 20, 18000);
     St.hemi = new THREE.HemisphereLight(0xffffff, 0x887766, 0.6);
     St.sun = new THREE.DirectionalLight(0xffffff, 3);
     const size = St.low ? 1024 : 2048, sc = St.sun.shadow.camera;
     St.sun.castShadow = true;
     St.sun.shadow.mapSize.set(size, size);
-    Object.assign(sc, { left: -850, right: 850, top: 650, bottom: -650, near: 100, far: 2800 });
-    St.sun.shadow.bias = -0.0006;
+    Object.assign(sc, { left: -850, right: 850, top: 650, bottom: -650, near: 100, far: 9000 });
+    St.sun.shadow.bias = -0.0003;
     St.sun.shadow.normalBias = 1.2;
     St.sun.target.position.set(640, 0, 360);
     scene.add(St.hemi, St.sun, St.sun.target);
@@ -81,6 +81,24 @@
     const jolt = G.shake > 0 ? G.shake : 0;
     aimCamera(baseDist / cam.z, cam.x + L.width / (2 * cam.z) + (Math.random() - 0.5) * jolt, cam.y + L.height / (2 * cam.z) + baseShift / cam.z + (Math.random() - 0.5) * jolt);
     St.camera.updateProjectionMatrix();
+    // Haze and sharp shadows follow the view, so zooming out stays clear and zooming in stays crisp.
+    const dist = baseDist / cam.z;
+    if (St.scene.fog) {
+      St.scene.fog.near = dist + 1500;
+      St.scene.fog.far = dist + 3400;
+      waterU.uFogFar.value = dist + 3400;
+    }
+    const sc = St.sun.shadow.camera, half = Math.max(420, 1280 / cam.z);
+    if (sc.right !== half) {
+      sc.left = -half; sc.right = half;
+      sc.top = half; sc.bottom = -half;
+      sc.updateProjectionMatrix();
+    }
+    const snap = 32;
+    const sx = Math.round((cam.x + L.width / (2 * cam.z)) / snap) * snap, sz = Math.round((cam.y + L.height / (2 * cam.z)) / snap) * snap;
+    St.sun.target.position.set(sx, 0, sz);
+    if (St.sunDir) St.sun.position.set(sx + St.sunDir[0] * 3, St.sunDir[1] * 3, sz + St.sunDir[2] * 3);
+    St.sun.target.updateMatrixWorld();
   };
 
   // Map point and height to a position on the 1280x720 stage.
@@ -121,16 +139,16 @@
   const groundU = {
     uSand: { value: new THREE.Color() }, uSandDark: { value: new THREE.Color() }, uGround: { value: new THREE.Color() },
     uGroundDark: { value: new THREE.Color() }, uPath: { value: new THREE.Color() }, uBed: { value: new THREE.Color() },
-    uRock: { value: new THREE.Color() }, uPathY: { value: L.queue.y + 3 }, uShopY: { value: L.shopQueue.y + 28 }, uShop: { value: 0 }
+    uRock: { value: new THREE.Color() }, uPathY: { value: 0 }, uShopY: { value: 0 }, uPathX: { value: 0 }, uShopX: { value: 0 }, uShop: { value: 0 }
   };
   function buildTerrain() {
-    const geo = new THREE.PlaneGeometry(5200, 4200, St.low ? 170 : 300, St.low ? 140 : 240);
+    const geo = new THREE.PlaneGeometry(7200, 5800, St.low ? 220 : 400, St.low ? 180 : 320);
     geo.rotateX(-Math.PI / 2);
     geo.translate(700, 0, 360);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) pos.setY(i, terrainY(pos.getX(i), pos.getZ(i)));
     geo.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
+    const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, envMapIntensity: 0 });
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, groundU);
       sh.vertexShader = sh.vertexShader
@@ -140,7 +158,7 @@
         .replace("#include <common>", `#include <common>
           varying vec3 vW;
           uniform vec3 uSand, uSandDark, uGround, uGroundDark, uPath, uBed, uRock;
-          uniform float uPathY, uShopY, uShop;
+          uniform float uPathY, uShopY, uPathX, uShopX, uShop;
           ${NOISE}
           float surf(vec2 p) { return fbm(p * 0.09) * 0.7 + vnoise(p * 0.7) * 0.3; }`)
         .replace("#include <color_fragment>", `#include <color_fragment>
@@ -155,15 +173,15 @@
           vec3 grass = mix(uGroundDark, uGround, smoothstep(0.25, 0.75, fbm(P * 0.05)) * 0.7 + fine * 0.3);
           grass = mix(grass, vec3(dot(grass, vec3(0.3, 0.6, 0.1))) * vec3(1.0, 0.98, 0.72), 0.3) * (0.62 + grain * 0.3);
           vec3 col = mix(sand, grass, inland);
-          float worn = max(1.0 - smoothstep(18.0, 34.0, abs(P.y - uPathY) + (n - 0.5) * 16.0), uShop * (1.0 - smoothstep(14.0, 28.0, abs(P.y - uShopY) + (n - 0.5) * 16.0)));
-          worn *= smoothstep(840.0, 880.0, P.x);
+          float worn = max((1.0 - smoothstep(18.0, 34.0, abs(P.y - uPathY) + (n - 0.5) * 16.0)) * smoothstep(uPathX - 40.0, uPathX, P.x),
+                           uShop * (1.0 - smoothstep(14.0, 28.0, abs(P.y - uShopY) + (n - 0.5) * 16.0)) * smoothstep(uShopX - 40.0, uShopX, P.x));
           col = mix(col, uPath * (0.82 + grain * 0.28), worn);
           col = mix(col, uRock * (0.8 + fine * 0.35), smoothstep(40.0, 150.0, vW.y + (n - 0.5) * 60.0) * 0.8);
           col = mix(col, uBed * (0.75 + fbm(P * 0.06) * 0.5), 1.0 - smoothstep(-5.0, 2.0, d));
           diffuseColor.rgb = col;`)
-        .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
-          float bump = surf(vW.xz);
-          normal = normalize(normal - 0.55 * (dFdx(bump) * normalize(dFdx(vViewPosition)) / max(length(dFdx(vViewPosition)), 0.001) + dFdy(bump) * normalize(dFdy(vViewPosition)) / max(length(dFdy(vViewPosition)), 0.001)) * 6.0);`);
+        .replace("#include <normal_fragment_maps>", St.low ? "#include <normal_fragment_maps>" : `#include <normal_fragment_maps>
+          float b0 = surf(vW.xz), bx = surf(vW.xz + vec2(1.5, 0.0)), bz = surf(vW.xz + vec2(0.0, 1.5));
+          normal = normalize(normal + (viewMatrix * vec4((b0 - bx) * 0.8, 0.0, (b0 - bz) * 0.8, 0.0)).xyz);`);
     };
     St.terrain = new THREE.Mesh(geo, mat);
     St.terrain.receiveShadow = true;
@@ -221,7 +239,7 @@
           #include <colorspace_fragment>
         }`
     });
-    const geo = new THREE.PlaneGeometry(6000, 5000);
+    const geo = new THREE.PlaneGeometry(11000, 9000);
     geo.rotateX(-Math.PI / 2);
     geo.translate(100, 0, 360);
     St.water = new THREE.Mesh(geo, mat);
@@ -254,7 +272,7 @@
     waterU.uFog.value.set(S.fog);
     St.sun.color.set(S.sun);
     St.sun.intensity = S.sunI;
-    St.sun.position.set(640 + S.dir[0], S.dir[1], 360 + S.dir[2]);
+    St.sunDir = S.dir;
     waterU.uSunDir.value.set(S.dir[0], S.dir[1], S.dir[2]).normalize();
     St.hemi.color.set(S.sky);
     St.hemi.groundColor.set(S.ground);
@@ -288,6 +306,11 @@
   St.render = function (t) {
     waterU.uT.value = t;
     groundU.uShop.value = G.s && G.s.fire ? 1 : 0;
+    // The worn footpaths lead to wherever the stall and shop stand.
+    groundU.uPathY.value = L.queue.y + 3;
+    groundU.uPathX.value = L.queue.x - 110;
+    groundU.uShopY.value = L.shopQueue.y + 28;
+    groundU.uShopX.value = L.shopQueue.x - 90;
     renderer.render(St.scene, St.camera);
   };
 })();

@@ -1,7 +1,7 @@
 /* Offline support. Uses the network when it can so updates appear straight away,
    and falls back to the saved copy when there is no connection.
    Add any new game file to FILES. */
-const CACHE = "catch-to-cash-v25";
+const CACHE = "catch-to-cash-v28";
 const FILES = [
   "./",
   "index.html",
@@ -16,6 +16,7 @@ const FILES = [
   "js/audio.js",
   "js/game.js",
   "js/missions.js",
+  "js/layout.js",
   "js/sea.js",
   "js/art.js",
   "js/render.js",

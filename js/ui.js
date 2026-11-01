@@ -7,6 +7,8 @@
 
   UI.init = function () {
     $("btnUpgrades").onclick = () => { CTC.audio.init(); $("drawer").classList.toggle("open"); UI.togglePanel(false); upgradeKey = ""; };
+    $("btnMove").onclick = () => { CTC.audio.init(); UI.togglePanel(false); UI.toggleTop(false); G.toggleMove(true); };
+    $("btnMoveDone").onclick = () => G.toggleMove(false);
     $("closeDrawer").onclick = () => $("drawer").classList.remove("open");
     $("btnBasket").onclick = () => { CTC.audio.init(); G.buyUpgrade("bag"); };
     $("btnFood").onclick = () => { CTC.audio.init(); UI.toggleFood(); };
@@ -408,7 +410,11 @@
     const shown = Math.floor(s.cash);
     if (shown !== lastCash) { $("cash").textContent = G.fmt(shown); lastCash = shown; }
     $("rate").textContent = G.fmt(G.earnRate()).replace(/^\$/, "$") + "/s";
+    const moving = G.moveMode && G.mode === "play";
+    $("moveBar").classList.toggle("hidden", !moving);
+    $("btnMove").classList.toggle("hidden", moving);
     const obj = G.guide().text;
+    if (moving && $("moveHint").textContent !== obj) $("moveHint").textContent = obj;
     if (obj !== lastObjective) { $("objective").textContent = obj; lastObjective = obj; }
     renderRoadmap();
     renderBasket();

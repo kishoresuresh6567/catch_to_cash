@@ -25,6 +25,8 @@ window.CTC = window.CTC || {};
 CTC.LAYOUT = {
   width: 1280,
   height: 720,
+  // The whole map. width and height above are the size of the view at normal zoom.
+  bounds: { x0: -900, y0: -540, x1: 2300, y1: 1260 },
   start: { x: 640, y: 470 },
   crate: { x: 665, y: 385 },
   stall: { x: 940, y: 455 },

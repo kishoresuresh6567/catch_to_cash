@@ -3,6 +3,7 @@
   const L = CTC.LAYOUT;
   const SAVE_KEY = "catchToCash.v1";
   const THROW_RANGE = 310;
+  const SEA_Y0 = -100, SEA_Y1 = 820;
 
   const G = (CTC.game = {
     mode: "title", // title | play | sailing | complete
@@ -29,40 +30,51 @@
   G.shoreX = (y) => 470 + 28 * Math.sin(y * 0.012 + 1) + 12 * Math.sin(y * 0.031);
   G.inWater = (x, y) => x < G.shoreX(y) && !G.onPier(x, y);
   G.onPier = (x, y) => x >= L.pier.x0 && x <= L.pier.x1 && y >= L.pier.y0 && y <= L.pier.y1;
-  function walkable(x, y) {
-    if (x > 1262 || y < 74 || y > 706) return false;
+  function walkable(x, y, margin) {
+    const B = L.bounds, m = margin || 0;
+    if (x > B.x1 - 18 || y < B.y0 + 20 || y > B.y1 - 15) return false;
     if (x < G.shoreX(y) + 10 && !G.onPier(x, y)) return false;
-    if (x > 850 && x < 1030 && y > 385 && y < 466) return false; // stall
-    if (G.s && G.s.fire && x > 880 && x < 1030 && y > 600 && y < 660) return false; // cooked food shop
-    if (x > 625 && x < 705 && y > 338 && y < 392) return false; // crate
-    if (G.s && G.s.fire && x > 602 && x < 678 && y > 532 && y < 588) return false; // fireplace
-    if (G.s && G.s.kitchen && x > 782 && x < 958 && y < 172) return false; // Cloud Kitchen
-    if (G.s && G.s.hotel && x > 1036 && x < 1224 && y < 200) return false; // Hotel
-    return true;
+    return !G.s || !G.solidBoxes().some((b) => x > b[0] - m && x < b[2] + m && y > b[1] - m && y < b[3] + m);
   }
 
+  // Checks closely, with some room to spare, so a route can't clip a building's corner.
+  // The ends of the line may sit right next to a building.
   function clearLine(ax, ay, bx, by) {
-    const steps = Math.ceil(dist(ax, ay, bx, by) / 12);
+    const len = dist(ax, ay, bx, by), steps = Math.ceil(len / 6);
     for (let i = 1; i <= steps; i++) {
-      if (!walkable(ax + ((bx - ax) * i) / steps, ay + ((by - ay) * i) / steps)) return false;
+      const along = (len * i) / steps;
+      if (!walkable(ax + ((bx - ax) * i) / steps, ay + ((by - ay) * i) / steps, along < 14 || len - along < 14 ? 0 : 5)) return false;
     }
     return true;
   }
-  // Corners the player can route through to get around the stall and pier.
-  const WAYPOINTS = [[838, 372], [1044, 372], [838, 480], [1044, 480], [548, 360], [868, 592], [1042, 592], [868, 668], [1042, 668], [614, 328], [716, 328], [614, 402], [716, 402], [590, 522], [690, 522], [590, 598], [690, 598], [770, 184], [970, 184], [1024, 212], [1236, 212]];
+  // Corners to route through to get around buildings, and which corners can see each other.
+  // Only rebuilt when a building appears or moves.
+  let routes = { key: null, pts: [], links: [] };
+  function routeMap() {
+    const key = G.layoutV + "," + G.solidBoxes().length;
+    if (routes.key === key) return routes;
+    const pts = [[548, 360]];
+    G.solidBoxes().forEach((b) => {
+      [[b[0] - 12, b[1] - 12], [b[2] + 12, b[1] - 12], [b[0] - 12, b[3] + 12], [b[2] + 12, b[3] + 12]].forEach((c) => { if (walkable(c[0], c[1])) pts.push(c); });
+    });
+    const links = pts.map((a, i) => pts.map((c, j) => (i !== j && clearLine(a[0], a[1], c[0], c[1]) ? j : -1)).filter((j) => j >= 0));
+    routes = { key, pts, links };
+    return routes;
+  }
   // Next point to head for on the shortest route to (tx, ty).
   function nextStep(p, tx, ty) {
     if (clearLine(p.x, p.y, tx, ty)) return { x: tx, y: ty };
-    const best = WAYPOINTS.map((w, i) => (clearLine(w[0], w[1], tx, ty) ? dist(w[0], w[1], tx, ty) : Infinity));
-    for (let pass = 0, changed = true; pass < WAYPOINTS.length && changed; pass++) {
+    const { pts, links } = routeMap();
+    const best = pts.map((w) => (clearLine(w[0], w[1], tx, ty) ? dist(w[0], w[1], tx, ty) : Infinity));
+    for (let pass = 0, changed = true; pass < pts.length && changed; pass++) {
       changed = false;
-      WAYPOINTS.forEach((a, i) => WAYPOINTS.forEach((b, j) => {
-        const via = dist(a[0], a[1], b[0], b[1]) + best[j];
-        if (i !== j && via < best[i] && clearLine(a[0], a[1], b[0], b[1])) { best[i] = via; changed = true; }
+      pts.forEach((a, i) => links[i].forEach((j) => {
+        const via = dist(a[0], a[1], pts[j][0], pts[j][1]) + best[j];
+        if (via < best[i]) { best[i] = via; changed = true; }
       }));
     }
     let step = { x: tx, y: ty }, min = Infinity;
-    WAYPOINTS.forEach((w, i) => {
+    pts.forEach((w, i) => {
       const d = dist(p.x, p.y, w[0], w[1]);
       if (d > 4 && best[i] + d < min && clearLine(p.x, p.y, w[0], w[1])) { min = best[i] + d; step = { x: w[0], y: w[1] }; }
     });
@@ -174,7 +186,7 @@
       catcherLv: {},
       carried: [], crate: [], stock: [], campaignDone: false,
       noHomes: true, beltsInPanel: true, wood: 0, fire: false, chain: false, feedBelt: false, hotBelt: false, hotSeller: false, fuel: 0, grill: [], cookedPile: [], cookedBag: [], cookedStock: [],
-      fence: false, kitchen: false, hotel: false, seaToast: false, seaBag: [], kitchenStock: [], hotelStock: []
+      moved: {}, fence: false, kitchen: false, hotel: false, seaToast: false, seaBag: [], kitchenStock: [], hotelStock: []
     };
   }
   G.freshSave = freshSave;
@@ -233,6 +245,9 @@
   /* ---------- world setup ---------- */
   G.startLevel = function (save) {
     G.s = save;
+    G.moveMode = false;
+    G.moveSel = null;
+    G.applyLayout();
     G.player = { x: L.start.x, y: L.start.y, tx: null, ty: null, face: -1, walk: 0, moving: false, throwT: 0, cool: 0, moveCool: 0 };
     G.fish = []; G.schools = []; G.customers = []; G.particles = []; G.floats = []; G.flyers = [];
     G.machines = []; G.belt = []; G.net = null; G.pendingThrow = null; G.cratePending = 0;
@@ -245,7 +260,7 @@
     G.timers = { customer: 1, transfer: 0, serve: 0, belt: 0, payFx: 0, respawn: 0 };
     G.earnLog = [];
     for (let i = 0; i < 5; i++) {
-      G.schools.push({ x: rand(60, 400), y: rand(100, 680), tx: rand(60, 400), ty: rand(100, 680) });
+      G.schools.push({ x: rand(40, 400), y: rand(SEA_Y0, SEA_Y1), tx: rand(40, 400), ty: rand(SEA_Y0, SEA_Y1) });
     }
     for (let i = 0; i < G.level().fishCount; i++) spawnFish(true);
     G.level().builds.slice(0, save.built).forEach((b, i) => addMachine(b, false, i));
@@ -281,8 +296,8 @@
     const sc = G.schools[school];
     G.fish.push({
       species, school,
-      x: initial ? sc.x + rand(-40, 40) : -30,
-      y: initial ? sc.y + rand(-40, 40) : rand(90, 680),
+      x: initial ? sc.x + rand(-40, 40) : -420,
+      y: initial ? sc.y + rand(-40, 40) : rand(SEA_Y0, SEA_Y1),
       vx: 0, vy: 0, jit: rand(0.85, 1.18),
       ox: rand(-42, 42), oy: rand(-34, 34),
       wig: rand(0, 6), speed: def.speed * rand(0.85, 1.2)
@@ -295,8 +310,9 @@
     if (b.type === "boat") {
       m.dockX = G.shoreX(spot.y) - 60; m.dockY = spot.y;
       m.bx = m.dockX; m.by = m.dockY; m.state = "out"; m.face = -1;
-      m.tx = rand(60, 360); m.ty = rand(90, 680);
+      m.tx = rand(-100, 360); m.ty = rand(SEA_Y0, SEA_Y1);
     }
+    if (b.type === "rig") G.placeCrane(m);
     if (b.type !== "ship") G.machines.push(m);
     return m;
   }
@@ -345,7 +361,21 @@
 
   /* ---------- player input actions ---------- */
   const CUTTER_START = { x: 790, y: 250 };
-  G.moveTo = function (x, y) { G.player.tx = x; G.player.ty = y; G.pendingThrow = null; };
+  // A tap on a building or past the edge of the map walks to the closest place to stand.
+  G.moveTo = function (x, y) {
+    const B = L.bounds;
+    x = Math.min(B.x1 - 22, x);
+    y = Math.max(B.y0 + 24, Math.min(B.y1 - 19, y));
+    const box = G.solidBoxes().find((b) => x > b[0] - 7 && x < b[2] + 7 && y > b[1] - 7 && y < b[3] + 7);
+    if (box) {
+      const gaps = [x - box[0], box[2] - x, y - box[1], box[3] - y], near = Math.min(...gaps);
+      if (near === gaps[0]) x = box[0] - 8;
+      else if (near === gaps[1]) x = box[2] + 8;
+      else if (near === gaps[2]) y = box[1] - 8;
+      else y = box[3] + 8;
+    }
+    G.player.tx = x; G.player.ty = y; G.pendingThrow = null;
+  };
 
   // Clicking a standing tree walks up to it so you can start chopping.
   G.clickTree = function (tree) {
@@ -372,7 +402,7 @@
         const p = G.player;
         if (dist(p.x, p.y, x, y) <= THROW_RANGE) G.throwFood(x, y);
         else {
-          const sy = Math.max(80, Math.min(700, y));
+          const sy = Math.max(L.bounds.y0 + 30, Math.min(L.bounds.y1 - 25, y));
           p.tx = G.shoreX(sy) + 16; p.ty = sy;
           G.pendingThrow = { x, y, food: true };
         }
@@ -384,7 +414,7 @@
       if (dist(p.x, p.y, x, y) <= THROW_RANGE) G.throwAt(x, y);
       else {
         // Walk to the closest point of the shore, then throw automatically.
-        const sy = Math.max(80, Math.min(700, y));
+        const sy = Math.max(L.bounds.y0 + 30, Math.min(L.bounds.y1 - 25, y));
         p.tx = G.shoreX(sy) + 16; p.ty = sy;
         G.pendingThrow = { x, y };
       }
@@ -481,27 +511,28 @@
       if (G.s.upg[id] >= u.max || G.upgradeLocked(u) || G.s.cash < G.upgradeCost(u)) return;
       chips.push({ id, x, y, h });
     };
-    add("cart", 900, 430, 220);
-    add("sellers", 980, 430, 220);
-    add("belt", 775, 400, 58);
-    add("feed", 655, 450, 58);
-    add("grill", 640, 560, 88);
-    add("hotBelt", 720, 632, 58);
-    add("hotCart", 925, 622, 190);
-    add("hotSellers", 985, 622, 190);
+    const midBelt = (P) => G.pointOnPath(P, G.pathLength(P) / 2);
+    const mids = { chain: midBelt(L.beltPath), feedBelt: midBelt(L.feedBeltPath), hotBelt: midBelt(L.hotBeltPath) };
+    add("cart", L.stall.x - 40, L.stall.y - 25, 220);
+    add("sellers", L.stall.x + 40, L.stall.y - 25, 220);
+    add("belt", mids.chain.x, mids.chain.y, 58);
+    add("feed", mids.feedBelt.x, mids.feedBelt.y, 58);
+    add("grill", L.fire.x, L.fire.y, 88);
+    add("hotBelt", mids.hotBelt.x, mids.hotBelt.y, 58);
+    add("hotCart", L.shop.x - 30, L.shop.y - 28, 190);
+    add("hotSellers", L.shop.x + 30, L.shop.y - 28, 190);
     // Words and price for the first woodcutter. After that, an arrow above them.
     const cutters = CTC.UPGRADES.find((u) => u.id === "cutters");
     if (G.s.upg.cutters === 0 && !G.upgradeLocked(cutters) && G.s.cash >= G.upgradeCost(cutters)) {
       chips.push({ id: "cutters", x: 790, y: 300, text: "\u25B2 Hire woodcutter: " + G.fmt(G.upgradeCost(cutters)) });
     } else if (G.cutters[0]) add("cutters", G.cutters[0].x, G.cutters[0].y, 92);
     add("fenceSize", 280, 110, 40);
-    add("kitchenUp", 870, 118, 130);
-    add("hotelUp", 1130, 144, 210);
+    add("kitchenUp", CTC.SEA.venues.kitchen.x, CTC.SEA.venues.kitchen.y - 52, 130);
+    add("hotelUp", CTC.SEA.venues.hotel.x, CTC.SEA.venues.hotel.y - 56, 210);
     CTC.sea.chips().forEach((b) => chips.push(b));
     // A button beside each belt's route as soon as it can be bought.
-    const BELT_CHIPS = { chain: [738, 402], feedBelt: [738, 470], hotBelt: [705, 600] };
     CTC.BELTS.filter(G.canBuyBelt).forEach((b) => {
-      chips.push({ belt: true, id: b.id, x: BELT_CHIPS[b.id][0], y: BELT_CHIPS[b.id][1], text: "\u25B2 Build belt: " + G.fmt(G.beltCost(b.id)) });
+      chips.push({ belt: true, id: b.id, x: mids[b.id].x, y: mids[b.id].y, text: "\u25B2 Build belt: " + G.fmt(G.beltCost(b.id)) });
     });
     return chips;
   };
@@ -588,7 +619,7 @@
     if (!G.s) return;
     G.schools.forEach((sc) => {
       const d = dist(sc.x, sc.y, sc.tx, sc.ty);
-      if (d < 20) { sc.tx = rand(40, G.shoreX(sc.y) - 70); sc.ty = rand(95, 685); }
+      if (d < 20) { sc.tx = rand(40, G.shoreX(sc.y) - 70); sc.ty = rand(SEA_Y0, SEA_Y1); }
       sc.x += ((sc.tx - sc.x) / (d || 1)) * 34 * dt;
       sc.y += ((sc.ty - sc.y) / (d || 1)) * 34 * dt;
     });
@@ -601,7 +632,7 @@
       if (G.food && (f.extra || dist(f.x, f.y, G.food.x, G.food.y) < CTC.FISH_FOOD.pull)) {
         wx = G.food.x + f.ox; wy = G.food.y + f.oy; speed *= 1.8;
       } else if (f.extra) {
-        wx = -60; wy = f.y; speed *= 1.5; // Extra fish leave once the food is gone.
+        wx = -460; wy = f.y; speed *= 1.5; // Extra fish leave once the food is gone.
       }
       if (f.fade !== undefined) f.fade = Math.min(1, f.fade + dt * 1.5);
       const d = dist(f.x, f.y, wx, wy) || 1;
@@ -616,8 +647,8 @@
     if (G.food) {
       G.food.t += dt;
       if (G.food.t >= G.food.life) G.food = null;
-    } else if (G.fish.some((f) => f.extra && f.x < -25)) {
-      G.fish = G.fish.filter((f) => !(f.extra && f.x < -25));
+    } else if (G.fish.some((f) => f.extra && f.x < -425)) {
+      G.fish = G.fish.filter((f) => !(f.extra && f.x < -425));
     }
     if (G.mode === "play") {
       G.timers.respawn -= dt;
@@ -960,24 +991,25 @@
     }
   }
 
+  const FAR_WALK = 320;
   function runQueue(list, q, dt) {
     let idx = 0;
     for (let i = list.length - 1; i >= 0; i--) {
-      if (list[i].x > 1480 || list[i].y > 860) list.splice(i, 1);
+      if (list[i].x > L.bounds.x1 + 100) list.splice(i, 1);
     }
     list.forEach((c) => {
       if (c.state !== "leave") {
         c.tx = q.x + q.gap * idx; c.ty = q.y; idx++;
-        c.patience -= dt;
+        if (dist(c.x, c.y, c.tx, c.ty) < FAR_WALK) c.patience -= dt;
         if (c.patience <= 0) {
           c.state = "leave"; c.mood = "sad";
           G.float(c.x, c.y - 70, c.cooked ? "No food?" : "No fish?", "#ffc9c2", 16);
         }
-      } else { c.tx = 1490; c.ty = c.cooked ? 712 : 690; }
+      } else { c.tx = L.bounds.x1 + 110; c.ty = c.cooked ? 712 : 690; }
       const d = dist(c.x, c.y, c.tx, c.ty);
       c.moving = d > 3;
       if (c.moving) {
-        const sp = (c.state === "leave" ? 130 : 105) * dt;
+        const sp = (c.state === "leave" ? 220 : d > FAR_WALK ? 180 : 105) * dt;
         c.face = c.tx < c.x ? -1 : 1;
         c.x += ((c.tx - c.x) / d) * Math.min(sp, d);
         c.y += ((c.ty - c.y) / d) * Math.min(sp, d);
@@ -992,7 +1024,7 @@
     G.timers.customer -= dt;
     const waiting = G.customers.filter((c) => c.state !== "leave");
     if (G.timers.customer <= 0 && waiting.length < q.max) {
-      G.customers.push(CTC.art.makeCustomer(1460, q.y + rand(-4, 4), 1 + Math.floor(Math.random() * 3)));
+      G.customers.push(CTC.art.makeCustomer(L.bounds.x1 + 80, q.y + rand(-4, 4), 1 + Math.floor(Math.random() * 3)));
       G.timers.customer = G.customerEvery() * rand(0.8, 1.2);
     }
     runQueue(G.customers, q, dt);
@@ -1004,7 +1036,7 @@
     if (!s.fire) return;
     G.timers.diner = (G.timers.diner || 0) - dt;
     if (G.timers.diner <= 0 && G.diners.filter((c) => c.state !== "leave").length < q.max) {
-      const c = CTC.art.makeCustomer(1460, q.y, 1 + Math.floor(Math.random() * C.dinerMaxWant));
+      const c = CTC.art.makeCustomer(L.bounds.x1 + 80, q.y, 1 + Math.floor(Math.random() * C.dinerMaxWant));
       c.cooked = true;
       G.diners.push(c);
       G.timers.diner = (C.dinerEvery / (1 + 0.5 * s.upg.hotSellers)) * rand(0.8, 1.2);
@@ -1100,26 +1132,25 @@
         m.t = 0; m.casts++; m.haul += G.catcherLv(m);
         G.splash(m.bx - m.face * 42, m.by + 10, false);
         if (m.casts >= HOLD) { m.casts = 0; m.state = "home"; m.tx = m.dockX; m.ty = m.dockY; m.dip = 0; }
-        else if (m.casts % 2 === 0) { m.tx = rand(60, 360); m.ty = rand(90, 680); m.state = "out"; m.dip = 0; }
+        else if (m.casts % 2 === 0) { m.tx = rand(-100, 360); m.ty = rand(SEA_Y0, SEA_Y1); m.state = "out"; m.dip = 0; }
       }
     } else if (m.state === "unload") {
       m.t += dt;
       if (m.t > 0.35 / G.catcherLv(m) && m.haul > 0) {
         if (room()) { toCrate(m.bx, m.by - 18, G.rollFish()); m.haul--; m.t = 0; }
       } else if (m.haul === 0 && m.t > 0.4) {
-        m.state = "out"; m.tx = rand(60, 360); m.ty = rand(90, 680);
+        m.state = "out"; m.tx = rand(-100, 360); m.ty = rand(SEA_Y0, SEA_Y1);
       }
     }
   }
 
-  const BELT_LEN = L.beltPath.reduce((a, pt, i) => (i ? a + dist(pt[0], pt[1], L.beltPath[i - 1][0], L.beltPath[i - 1][1]) : 0), 0);
   G.pathLength = (P) => P.reduce((a, pt, i) => (i ? a + dist(pt[0], pt[1], P[i - 1][0], P[i - 1][1]) : 0), 0);
   G.beltPoint = (d) => G.pointOnPath(L.beltPath, d);
   G.pointOnPath = function (P, d) {
     for (let i = 1; i < P.length; i++) {
       const a = P[i - 1], b = P[i];
       const seg = dist(a[0], a[1], b[0], b[1]);
-      if (d <= seg) return { x: a[0] + ((b[0] - a[0]) * d) / seg, y: a[1] + ((b[1] - a[1]) * d) / seg };
+      if (seg > 0 && d <= seg) return { x: a[0] + ((b[0] - a[0]) * d) / seg, y: a[1] + ((b[1] - a[1]) * d) / seg };
       d -= seg;
     }
     const last = P[P.length - 1];
@@ -1137,7 +1168,7 @@
     for (let i = G.belt.length - 1; i >= 0; i--) {
       const b = G.belt[i];
       b.d += G.beltSpeed() * dt;
-      if (b.d >= BELT_LEN) {
+      if (b.d >= G.pathLength(L.beltPath)) {
         s.stock.push(b.species);
         G.belt.splice(i, 1);
         CTC.audio.play("plop");
@@ -1187,6 +1218,10 @@
   /* ---------- tutorial guide ---------- */
   G.guide = function () {
     const s = G.s, b = G.nextBuild(), p = G.player;
+    if (G.moveMode) {
+      const sel = G.moveItems().find((o) => o.id === G.moveSel);
+      return { text: sel ? "Now tap where the " + sel.name + " should go" : "Drag a building to move it, or tap it and then tap a spot. It's free" };
+    }
     if (G.foodArmed) return { text: "Click the water to throw the fish food" };
     const F = L.fire;
     if (s.fire && !s.hotBelt && s.cookedPile.length && G.bagCount() < G.bagCap()) return { text: "Cooked fish ready! Collect it at the fire", x: F.x, y: F.y - 40 };

@@ -22,7 +22,7 @@
    Theme decor options: "palm", "coral", "pine".
    Theme weather options: null, "petals", "snow".
    ========================================================================== */
-window.CTC = window.CTC || {};
+
 
 CTC.LAYOUT = {
   width: 1280,

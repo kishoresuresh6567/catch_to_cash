@@ -11,6 +11,12 @@
     manifest.rel = "manifest";
     manifest.href = "manifest.webmanifest";
     document.head.appendChild(manifest);
+    const font = document.createElement("link");
+    font.rel = "preload";
+    font.as = "font";
+    font.href = "fonts/Bungee-Regular.ttf";
+    font.crossOrigin = "anonymous";
+    document.head.appendChild(font);
   }
 </script>
 <link rel="icon" href="icons/icon-192.png">
@@ -311,22 +317,26 @@
   <p>Catch 2 Cash is now in 3D, and this browser can't show 3D graphics. Try turning on hardware acceleration in its settings, or use the latest Chrome, Edge, Firefox or Safari.</p>
 </div>
 
-<script src="js/vendor/three.bundle.js"></script>
-<script src="js/levels.js"></script>
+<script>window.CTC = {};</script>
 <script src="js/audio.js"></script>
-<script src="js/game.js"></script>
-<script src="js/missions.js"></script>
-<script src="js/layout.js"></script>
-<script src="js/sea.js"></script>
-<script src="js/art.js"></script>
-<script src="js/vendor/people.data.js"></script>
-<script src="js/3d/stage.js"></script>
-<script src="js/3d/people.js"></script>
-<script src="js/3d/models.js"></script>
-<script src="js/render.js"></script>
-<script src="js/leap.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/main.js"></script>
 <script src="js/splash.js"></script>
+<script>
+  // Tap to start shows straight away. The game's files load behind it once the page has been
+  // drawn, and main.js, which builds the 3D world and takes the longest, waits for the tap.
+  function loadScript(name) {
+    const script = document.createElement("script");
+    script.src = "js/" + name + ".js";
+    script.async = false;
+    document.body.appendChild(script);
+  }
+  let filesQueued = false;
+  function loadFiles() {
+    if (filesQueued) return;
+    filesQueued = true;
+    ["vendor/three.bundle", "levels", "game", "missions", "layout", "sea", "art", "vendor/people.data", "3d/stage", "3d/people", "3d/models", "render", "leap", "ui"].forEach(loadScript);
+  }
+  CTC.loadMain = () => { loadFiles(); loadScript("main"); };
+  requestAnimationFrame(() => setTimeout(loadFiles));
+</script>
 </body>
 </html>

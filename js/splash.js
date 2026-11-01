@@ -1,6 +1,6 @@
 /* Launch sequence: the Silly Goose Studios goose, then the pond opening where a net
    scoops up the 2 and two fish turn into Catch and Cash, then the title screen.
-   It waits for a first tap, because browsers block sound until then. After that,
+   It waits for a first tap, because browsers block sound until then, and the game is built after that tap. After that,
    tapping skips ahead one step. The opening's animation timings are in style.css. */
 (function () {
   const STUDIO_TIME = 3400;
@@ -16,7 +16,7 @@
     [4250, "logoJingle"] // The fish turn into Catch and Cash.
   ];
   const el = document.getElementById("splash");
-  let started = false, step = 0, timer, soundTimers = [];
+  let started = false, playing = false, step = 0, timer, soundTimers = [];
 
   function playSounds(list) {
     soundTimers.forEach(clearTimeout);
@@ -46,15 +46,26 @@
   el.addEventListener("click", function start() {
     if (started) return;
     started = true;
-    el.classList.remove("waiting");
     CTC.audio.holdMusic = true; // Keeps the music out of the way of the intro sounds.
     CTC.audio.init();
-    playSounds(STUDIO_SOUNDS);
-    timer = setTimeout(advance, STUDIO_TIME);
+    // Answers the tap at once, then builds the game. The show starts when that's done, so it
+    // doesn't stutter and its sounds stay in time.
+    const button = document.getElementById("tapToStart");
+    button.innerHTML = "<b>Loading...</b>";
+    requestAnimationFrame(() => setTimeout(() => {
+      CTC.loadMain();
+      (function waitForGame() {
+        if (!CTC.ready) { setTimeout(waitForGame, 50); return; }
+        el.classList.remove("waiting");
+        playing = true;
+        playSounds(STUDIO_SOUNDS);
+        timer = setTimeout(advance, STUDIO_TIME);
+      })();
+    }));
   });
 
   el.addEventListener("pointerdown", () => {
-    if (!started) return;
+    if (!playing) return;
     CTC.audio.play("honk");
     advance();
   });

@@ -216,7 +216,7 @@
   }
   // Installing and offline play need a web address, so skip this when opened as a file.
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    navigator.serviceWorker.register("sw.js").catch(() => {});
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden && G.mode !== "title") G.save(); });
   window.addEventListener("beforeunload", () => { if (G.mode !== "title") G.save(); });
@@ -227,7 +227,7 @@
   }
 
   // The title screen shows the saved level, or the first level for new players.
-  if (!webglWorks()) { document.getElementById("noWebgl").classList.remove("hidden"); return; }
+  if (!webglWorks()) { document.getElementById("noWebgl").classList.remove("hidden"); CTC.ready = true; return; }
   CTC.render.init(canvas, document.getElementById("scene3d"));
   const saved = G.loadSave();
   G.startLevel(saved || G.freshSave(0));
@@ -245,4 +245,5 @@
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+  CTC.ready = true;
 })();

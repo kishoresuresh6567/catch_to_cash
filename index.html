@@ -24,6 +24,7 @@
 </head>
 <body>
 <div id="stage">
+  <canvas id="scene3d"></canvas>
   <canvas id="game"></canvas>
 
   <div id="hud" class="hidden">
@@ -106,7 +107,6 @@
   </section>
 
   <section id="briefing" class="overlay hidden">
-    <canvas id="leapCanvas" width="1280" height="720"></canvas>
     <div class="card">
       <div id="briefKicker"></div>
       <h2 id="briefTitle"></h2>
@@ -282,14 +282,22 @@
   <p>Turn your phone sideways to play</p>
 </div>
 
+<div id="noWebgl" class="hidden">
+  <p>Catch 2 Cash is now in 3D, and this browser can't show 3D graphics. Try turning on hardware acceleration in its settings, or use the latest Chrome, Edge, Firefox or Safari.</p>
+</div>
+
+<script src="js/vendor/three.bundle.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
 <script src="js/missions.js"></script>
 <script src="js/sea.js"></script>
 <script src="js/art.js"></script>
+<script src="js/vendor/people.data.js"></script>
+<script src="js/3d/stage.js"></script>
+<script src="js/3d/people.js"></script>
+<script src="js/3d/models.js"></script>
 <script src="js/render.js"></script>
-<script src="js/leap.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 <script src="js/splash.js"></script>

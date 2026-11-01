@@ -1,12 +1,12 @@
 # Catch 2 Cash
 
-A Silly Goose Studios production.
+A Silly Goose Studios production, now in 3D with real human characters.
 
 Throw your net, sell fish to the townsfolk, then spend the cash to automate everything: net cranes, trawlers, belts between the crate, stall, fire and shop, and hired sellers. Then cook fish for more cash. Buy the ship to sail to the next place.
 
 ## Play
 
-Double-click `index.html`. It needs no install, server, or internet connection. Progress saves automatically in the browser.
+Double-click `index.html`. It needs no install, server, or internet connection, only a browser with 3D graphics (WebGL 2) turned on. Progress saves automatically in the browser, and saves from the 2D version still work.
 
 | Action | Control |
 |---|---|
@@ -17,7 +17,7 @@ Double-click `index.html`. It needs no install, server, or internet connection. 
 | Add sellers, upgrade the cart or belt | Blue arrow above them, or the Upgrades panel |
 | Chop wood (unlocks after hiring a stall seller) | Click a tree, then stand still next to it |
 | Hire woodcutters, up to 3 (unlocks after hiring a stall seller) | Green Hire button, then the blue arrow above the woodcutter, or the Upgrades panel |
-| Start or continue a place, or reach a new player level | The game pauses on a new screen with fish leaping into a river and the missions to do next. Press Start |
+| Start or continue a place, or reach a new player level | The game pauses with a card over the world showing the missions to do next. Press Start |
 | Build the fireplace | Stand on its pad with enough wood and cash |
 | Cook fish | Stand at the fire with raw fish; collect them when done |
 | Sell cooked food | Stand in the dashed circle at the Hot Food shop |
@@ -33,7 +33,7 @@ Double-click `index.html`. It needs no install, server, or internet connection. 
 | Upgrades | In the left panel, or U |
 | Goal and player level | Arrow at the top centre, or T |
 | Missions | Player Level badge at the top, or M |
-| Zoom | Pinch on a phone, mouse wheel on a computer; drag to look around |
+| Zoom | Pinch on a phone, mouse wheel on a computer; drag to look around. Each place starts zoomed in on your character. Zoom all the way out to see the whole map |
 | Basket, fish food, missions, upgrades, sound and pause | Arrow on the left edge, or O |
 | Pause | Menu button in the left panel, or Esc |
 
@@ -59,7 +59,13 @@ Open `js/levels.js`, copy a block in `CTC.LEVELS`, and edit it. The comment at t
 
 - `js/levels.js`: levels, fish, build order, upgrades, map layout
 - `js/game.js`: game rules and simulation
-- `js/art.js`, `js/render.js`: all drawing (no image files)
+- `js/render.js`: matches the 3D world to the game each frame, and draws the labels above it
+- `js/3d/stage.js`: camera, light, terrain and water
+- `js/3d/people.js`: the people, their clothes and their animations
+- `js/3d/models.js`: fish, sea creatures, buildings, boats and trees, built from code
+- `js/art.js`: the small 2D pieces (badges, buttons, fish icons) and how each person looks
+- `js/vendor/`: generated files, the 3D engine and the people. Don't edit these. To remake them, follow the note at the top of `tools/build-3d-assets.mjs`
+- `assets/CREDITS.txt`: credits and licenses for the models and the 3D engine
 - `js/audio.js`: synthesized sound and music (no audio files)
 - `js/ui.js`, `css/style.css`: menus and HUD
 - `js/main.js`: input, camera and the game loop

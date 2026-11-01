@@ -26,12 +26,13 @@
     return { x: ((e.clientX - r.left) / r.width) * L.width, y: ((e.clientY - r.top) / r.height) * L.height };
   }
   function toWorld(e) {
-    const s = toStage(e), cam = G.cam;
-    return { x: cam.x + s.x / cam.z, y: cam.y + s.y / cam.z };
+    const s = toStage(e);
+    return CTC.stage.pick(s.x, s.y);
   }
 
   /* ---------- camera ---------- */
-  const MAX_ZOOM = 3;
+  const MAX_ZOOM = 4;
+  CTC.START_ZOOM = 1.4;
   const FOLLOW_DELAY = 2500;
   function clampCam() {
     const cam = G.cam;
@@ -121,9 +122,18 @@
     const wasTap = drag && !drag.moved;
     drag = null;
     if (wasTap && !cancelled && touches.size === 0) {
-      const w = toWorld(e);
-      G.clickWorld(w.x, w.y);
+      tap(e);
     }
+  }
+  // Things standing above the ground are found by where they appear on screen.
+  function tap(e) {
+    const s = toStage(e);
+    const hit = CTC.render.chipAt(s.x, s.y);
+    if (hit) { G.clickChip(hit); return; }
+    const tree = CTC.render.treeAt(s.x, s.y);
+    if (tree && G.clickTree(tree)) return;
+    const w = CTC.stage.pick(s.x, s.y);
+    G.clickWorld(w.x, w.y);
   }
   canvas.addEventListener("pointerup", (e) => endPointer(e, false));
   canvas.addEventListener("pointercancel", (e) => endPointer(e, true));
@@ -177,8 +187,13 @@
   window.addEventListener("beforeunload", () => { if (G.mode !== "title") G.save(); });
   setInterval(() => { if (G.mode === "play") G.save(); }, 5000);
 
+  function webglWorks() {
+    try { return !!document.createElement("canvas").getContext("webgl2"); } catch (e) { return false; }
+  }
+
   // The title screen shows the saved level, or the first level for new players.
-  CTC.render.init(canvas);
+  if (!webglWorks()) { document.getElementById("noWebgl").classList.remove("hidden"); return; }
+  CTC.render.init(canvas, document.getElementById("scene3d"));
   const saved = G.loadSave();
   G.startLevel(saved || G.freshSave(0));
   CTC.ui.init();

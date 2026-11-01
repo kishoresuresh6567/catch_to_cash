@@ -1,0 +1,12 @@
+Third-party parts of the 3D game
+
+People and their animations
+  Universal Base Characters and Universal Animation Library, by Quaternius
+  https://quaternius.com
+  License: CC0 1.0 Universal (public domain)
+  https://creativecommons.org/publicdomain/zero/1.0/
+  Packed into js/vendor/people.data.js by tools/build-3d-assets.mjs.
+
+3D engine
+  three.js r170, https://threejs.org
+  License: MIT. The notice is kept inside js/vendor/three.bundle.js.

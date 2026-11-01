@@ -6,6 +6,15 @@
   "scripts": {
     "start": "start \"\" index.html",
     "dev": "npm start",
-    "serve": "node tools/local-server.js"
+    "serve": "node tools/local-server.js",
+    "build:3d": "node tools/build-3d-assets.mjs"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "esbuild": "^0.28.2",
+    "sharp": "^0.35.5",
+    "three": "0.170.0"
   }
 }

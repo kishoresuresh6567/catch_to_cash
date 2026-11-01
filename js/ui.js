@@ -50,7 +50,6 @@
     };
     $("btnBrief").onclick = () => {
       $("briefing").classList.add("hidden");
-      CTC.leap.stop();
       if (briefIsLevelUp) {
         $("hud").classList.remove("hidden");
         G.mode = "play";
@@ -88,7 +87,7 @@
     showLevelBanner();
   }
 
-  // Pauses the game on a screen of its own: fish leaping into a river, and the missions to do next.
+  // Pauses the game with the missions to do next on a card over the world.
   function showMissionScreen(kicker, title, text, rows) {
     G.mode = "briefing";
     $("hud").classList.add("hidden");
@@ -97,7 +96,6 @@
     $("briefText").textContent = text;
     $("briefList").innerHTML = rows.map((r) => '<li class="' + (r.done ? "done" : "") + '"><b>' + r.name + "</b><span>" + r.value + "</span></li>").join("");
     $("briefing").classList.remove("hidden");
-    CTC.leap.start();
     CTC.audio.play("fishJump");
   }
 
@@ -113,7 +111,8 @@
   UI.showBriefing = function () {
     const s = G.s, lv = G.level(), next = CTC.LEVELS[s.level + 1];
     briefIsLevelUp = false;
-    Object.assign(G.cam, { z: 1, x: 0, y: 0 });
+    // Starts close enough to see the people. Zoom out for the whole map.
+    Object.assign(G.cam, { z: CTC.START_ZOOM, x: G.player.x - CTC.LAYOUT.width / (2 * CTC.START_ZOOM), y: G.player.y - CTC.LAYOUT.height / (2 * CTC.START_ZOOM) });
     const ship = lv.builds[lv.builds.length - 1];
     const builds = lv.builds.slice(0, -1).map((b, i) => ({ name: b.name, cost: b.cost, done: i < s.built }));
     const rows = builds.concat(CTC.sea.steps(), ship).map((b) => ({ name: b.name, value: G.fmt(b.cost), done: b.done }));

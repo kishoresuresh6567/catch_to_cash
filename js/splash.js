@@ -6,6 +6,7 @@
   const STUDIO_TIME = 3400;
   const PRESENTS_TIME = 6800;
   const FADE_TIME = 500;
+  const SKIP_AFTER = 2500; // The goose call has finished by then.
   // When each sound plays, in milliseconds from the start of its screen. These match
   // the animation timings in style.css.
   const STUDIO_SOUNDS = [[1000, "gooseCall"]]; // As the goose lands.
@@ -57,15 +58,18 @@
       (function waitForGame() {
         if (!CTC.ready) { setTimeout(waitForGame, 50); return; }
         el.classList.remove("waiting");
-        playing = true;
+        CTC.audio.init(); // Wakes the sound if the browser put it to sleep during the wait.
         playSounds(STUDIO_SOUNDS);
         timer = setTimeout(advance, STUDIO_TIME);
+        // Taps made while loading arrive late. They mustn't skip the goose and its call.
+        setTimeout(() => { playing = true; }, SKIP_AFTER);
       })();
     }));
   });
 
   el.addEventListener("pointerdown", () => {
     if (!playing) return;
+    CTC.audio.init();
     CTC.audio.play("honk");
     advance();
   });

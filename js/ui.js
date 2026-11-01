@@ -70,7 +70,7 @@
       else showLevelBanner();
     };
     try {
-      if (localStorage.getItem("catchToCash.muted")) { CTC.audio.muted = true; $("btnSound").classList.add("muted"); }
+      if (localStorage.getItem("catchToCash.muted")) { CTC.audio.setMuted(true); $("btnSound").classList.add("muted"); }
     } catch (e) { /* ignore */ }
 
     if (G.s && G.loadSave()) $("btnContinue").classList.remove("hidden");

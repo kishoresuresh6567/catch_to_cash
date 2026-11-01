@@ -11,7 +11,7 @@
 
    beltCosts: the price of each of the three belts in this place.
 
-   unhappyLimit: how many customers can walk away unhappy before the place is failed.
+   unhappyLimit: how many customers of the kind being checked can walk away unhappy before the level is failed.
 
    Build types:
      rig      - net crane on the shore, drops fish in the crate automatically

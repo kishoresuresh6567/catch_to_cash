@@ -4,7 +4,7 @@
    There are 100 missions and 100 player levels. Mission XP is scaled so that
    finishing the last mission lands exactly on level 100.
 
-   One mission runs at a time, against a deadline. Missing it fails the place.
+   One mission runs at a time, against a deadline. Missing it fails the player level.
    Each mission is sized when it starts, from what the player can do right now, so it
    stays a job of 2 to 5 minutes all through the game.
 
@@ -105,6 +105,8 @@
   function startMission() {
     const d = P.data, i = d.index;
     if (i >= MISSION_COUNT) return;
+    G.s.unhappy = 0;
+    G.markRetry();
     let kind = KINDS[0];
     for (let k = 0; k < KINDS.length; k++) {
       const next = KINDS[(i + k) % KINDS.length];
@@ -118,7 +120,9 @@
       id: kind.stat + "-" + i, stat: kind.stat, n, money: !!kind.money,
       text: kind.text.replace("{n}", shown).replace(" 1 times", " once"),
       base: d.stats[kind.stat] || 0, xp: XP[i], cash: 20 + i * 8,
-      limit: seconds * DEADLINE_SPARE, left: seconds * DEADLINE_SPARE
+      limit: seconds * DEADLINE_SPARE, left: seconds * DEADLINE_SPARE,
+      // Fresh fish until the hot food shop is open. Then odd levels check fresh fish, even levels hot food.
+      watch: G.s.shopOpen && P.levelInfo().level % 2 === 0 ? "hot" : "fresh"
     };
   }
 
@@ -184,6 +188,9 @@
     }
     if (levelReached) { G.emit("levelUp", levelReached); levelReached = 0; }
   };
+
+  P.watchesHot = (m) => m.watch === "hot";
+  P.watchName = (m) => (P.watchesHot(m) ? "hot food" : "fresh fish");
 
   P.fmtValue = (m, v) => (m.money ? G.fmt(v) : fmtCount(v));
 

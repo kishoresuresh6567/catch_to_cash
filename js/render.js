@@ -112,8 +112,17 @@
     a.group.rotation.y = a.yaw;
     People.play(a, o.anim, o.speed);
     if (a.axeMesh) a.axeMesh.visible = !!o.tool;
+    // The clips have no sleeping pose. The mixer can skip unchanged bones, so the nod is undone first.
+    if (a.nodding) nod(a, -1);
     a.mixer.update(R.dt);
+    a.nodding = !!o.asleep;
+    if (a.nodding) nod(a, 1);
     return a;
+  }
+
+  function nod(a, way) {
+    a.bones.Head.rotation.x += 0.75 * way;
+    a.bones.spine_03.rotation.x += 0.3 * way;
   }
 
   // Removes people who have left.
@@ -136,11 +145,11 @@
     // Stall and shop staff face their customers.
     for (let i = 0; i < G.sellerCount(); i++) {
       const o = (stallOwners[i] = stallOwners[i] || {});
-      person(o, Art.sellerLooks[i], L.stall.x + SELLER_X[i], L.stall.y - 50, { yaw: 0, anim: s.stock.length && G.customers.length ? "Idle_Talking_Loop" : "Idle_Loop" });
+      person(o, Art.sellerLooks[i], L.stall.x + SELLER_X[i], L.stall.y - 50, G.asleep("stall") ? { yaw: 0, anim: "Idle_Loop", speed: 0.25, asleep: true } : { yaw: 0, anim: s.stock.length && G.customers.length ? "Idle_Talking_Loop" : "Idle_Loop" });
     }
     if (s.fire) for (let i = 0; i < G.hotSellerCount(); i++) {
       const o = (shopOwners[i] = shopOwners[i] || {});
-      person(o, Art.sellerLooks[i], L.shop.x + SHOP_X[i], L.shop.y - 49, { yaw: 0, anim: s.cookedStock.length && G.diners.length ? "Idle_Talking_Loop" : "Idle_Loop" });
+      person(o, Art.sellerLooks[i], L.shop.x + SHOP_X[i], L.shop.y - 49, G.asleep("shop") ? { yaw: 0, anim: "Idle_Loop", speed: 0.25, asleep: true } : { yaw: 0, anim: s.cookedStock.length && G.diners.length ? "Idle_Talking_Loop" : "Idle_Loop" });
     }
     G.customers.concat(G.diners).forEach((cu) => {
       if (cu.look.beard === undefined) cu.look.beard = !cu.look.style && Math.random() < 0.3;
@@ -524,6 +533,8 @@
     if (G.mode !== "title") {
       G.customers.concat(G.diners).forEach((cu) => drawBubble(cu, defs));
       if (s.crate.length) badgeAt(L.crate.x, L.crate.y - 20, 48, String(s.crate.length), "#16324a");
+      if (G.asleep("stall") && G.sellerCount()) badgeAt(L.stall.x + SELLER_X[0], L.stall.y - 50, 92, "Zzz", "#5b4fb3");
+      if (G.asleep("shop") && s.fire && G.hotSellerCount()) badgeAt(L.shop.x + SHOP_X[0], L.shop.y - 49, 92, "Zzz", "#5b4fb3");
       if (s.stock.length) badgeAt(L.stall.x, L.stall.y - 25, 66, s.stock.length + "/" + G.stockCap(), "#16324a", 92);
       if (s.fire) {
         if (s.cookedStock.length) badgeAt(L.shop.x, L.shop.y - 28, 60, s.cookedStock.length + "/" + G.hotCap(), "#b5702c", 80);

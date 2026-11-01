@@ -186,7 +186,7 @@
       catcherLv: {},
       carried: [], crate: [], stock: [], campaignDone: false,
       noHomes: true, beltsInPanel: true, wood: 0, fire: false, chain: false, feedBelt: false, hotBelt: false, hotSeller: false, fuel: 0, grill: [], cookedPile: [], cookedBag: [], cookedStock: [],
-      entryCash: cash || 0, entryUpg: {}, unhappy: 0, open: false, shopOpen: false,
+      retry: null, unhappy: 0, open: false, shopOpen: false,
       moved: {}, fence: false, kitchen: false, hotel: false, seaToast: false, seaBag: [], kitchenStock: [], hotelStock: []
     };
   }
@@ -246,6 +246,7 @@
   /* ---------- world setup ---------- */
   G.startLevel = function (save) {
     G.s = save;
+    if (!save.retry) G.markRetry();
     G.moveMode = false;
     G.moveSel = null;
     G.applyLayout();
@@ -260,6 +261,7 @@
     G.chopT = 0; G.noticeT = 0; G.diners = []; G.hotBeltItems = []; G.feedItems = [];
     G.timers = { customer: 1, transfer: 0, serve: 0, belt: 0, payFx: 0, respawn: 0 };
     G.earnLog = [];
+    G.naps = { stall: { next: rand(NAP_EVERY[0], NAP_EVERY[1]), left: 0 }, shop: { next: rand(NAP_EVERY[0], NAP_EVERY[1]), left: 0 } };
     for (let i = 0; i < 5; i++) {
       G.schools.push({ x: rand(40, 400), y: rand(SEA_Y0, SEA_Y1), tx: rand(40, 400), ty: rand(SEA_Y0, SEA_Y1) });
     }
@@ -273,7 +275,7 @@
     if (CTC.LEVELS[n]) {
       const save = freshSave(n, G.s.cash);
       // Your basket and fish food recipe stay with you between levels.
-      ["bag", "foodTime", "foodQuality"].forEach((k) => { save.upg[k] = G.s.upg[k]; save.entryUpg[k] = G.s.upg[k]; });
+      ["bag", "foodTime", "foodQuality"].forEach((k) => { save.upg[k] = G.s.upg[k]; });
       CTC.player.newPlace();
       G.startLevel(save);
       G.save();
@@ -282,22 +284,26 @@
     else { G.s.campaignDone = true; G.save(); G.mode = "play"; }
   };
 
-  // The place starts over with what the player arrived with. Player level and XP stay,
-  // and buildings keep the spots chosen for them. The fresh start is saved straight away,
+  // Remembers the game as it is now, for when the player level that's starting is failed.
+  G.markRetry = function () {
+    G.s.retry = JSON.parse(JSON.stringify(Object.assign({}, G.s, { retry: null })));
+  };
+
+  // The player level starts over with what the player had when it began. Level and XP stay,
+  // and buildings keep the spots chosen for them. The new start is saved straight away,
   // so reloading the page can't dodge a failure.
   G.failLevel = function (why) {
     if (G.mode !== "play" || G.s.campaignDone) return;
-    const old = G.s, name = G.level().name;
-    const save = freshSave(old.level, old.entryCash);
-    save.entryUpg = old.entryUpg;
-    Object.assign(save.upg, old.entryUpg);
+    const old = G.s, level = CTC.player.levelInfo().level;
+    const save = old.retry;
+    save.unhappy = 0;
     save.moved = old.moved;
     CTC.player.newPlace();
     G.startLevel(save);
     G.mode = "failed";
     G.save();
     CTC.audio.play("miss");
-    G.emit("failed", { name, why, sold: old.sold, earned: old.earned, time: old.time });
+    G.emit("failed", { level, why, sold: old.sold, earned: old.earned, time: old.time });
   };
 
   G.unhappyLimit = () => G.level().unhappyLimit;
@@ -622,6 +628,7 @@
       updateFire(dt);
       updateHotLine(dt);
       updateFeedBelt(dt);
+      updateNaps(dt);
       updateCustomers(dt);
       updateShop(dt);
       updateSelling(dt);
@@ -1013,6 +1020,25 @@
     }
   }
 
+  // Now and then a shop's sellers nod off. Customers wait unless the player serves them.
+  const NAP_EVERY = [90, 150]; // Seconds of work between naps.
+  const NAP_LONG = 65; // Longer than the most patient customer waits.
+  G.asleep = (shop) => G.naps[shop].left > 0;
+  function napTick(shop, sellers, says, dt) {
+    const n = G.naps[shop];
+    if (!sellers) return;
+    if (n.left > 0) { n.left -= dt; return; }
+    n.next -= dt;
+    if (n.next > 0) return;
+    n.left = NAP_LONG;
+    n.next = rand(NAP_EVERY[0], NAP_EVERY[1]);
+    G.emit("toast", says);
+  }
+  function updateNaps(dt) {
+    napTick("stall", G.sellerCount(), "Your fresh fish seller fell asleep! Serve the customers yourself.", dt);
+    napTick("shop", G.hotSellerCount(), "Your hot food seller fell asleep! Serve the customers yourself.", dt);
+  }
+
   const FAR_WALK = 320;
   function runQueue(list, q, dt) {
     let idx = 0;
@@ -1026,9 +1052,13 @@
         if (dist(c.x, c.y, c.tx, c.ty) < FAR_WALK) c.patience -= dt;
         if (c.patience <= 0) {
           c.state = "leave"; c.mood = "sad";
-          G.s.unhappy++;
-          CTC.audio.play("miss");
-          if (G.s.unhappy >= G.unhappyLimit()) G.failLevel(G.s.unhappy + " unhappy " + (G.s.unhappy === 1 ? "customer" : "customers") + " walked away.");
+          // Each level checks one kind of customer. The other kind can leave without counting.
+          const m = CTC.player.current();
+          if (m && CTC.player.watchesHot(m) === !!c.cooked) {
+            G.s.unhappy++;
+            CTC.audio.play("miss");
+            if (G.s.unhappy >= G.unhappyLimit()) G.failLevel(G.s.unhappy + " unhappy " + CTC.player.watchName(m) + " " + (G.s.unhappy === 1 ? "customer" : "customers") + " walked away.");
+          }
           if (G.mode !== "play") return;
           G.float(c.x, c.y - 70, c.cooked ? "No food?" : "No fish?", "#ffc9c2", 16);
         }
@@ -1084,7 +1114,7 @@
     G.timers.shopServe = (G.timers.shopServe || 0) - dt;
     if (G.timers.shopServe > 0 || !s.cookedStock.length) return;
     const playerThere = dist(p.x, p.y, L.shopZone.x, L.shopZone.y) < L.shopZone.r;
-    const hotSellers = G.hotSellerCount();
+    const hotSellers = G.asleep("shop") ? 0 : G.hotSellerCount();
     if (!playerThere && !hotSellers) return;
     const c = G.diners.find((x) => x.state !== "leave");
     if (!c || dist(c.x, c.y, q.x, q.y) > 16) return;
@@ -1103,7 +1133,7 @@
   function updateSelling(dt) {
     const s = G.s, p = G.player;
     const playerThere = dist(p.x, p.y, L.stallZone.x, L.stallZone.y) < L.stallZone.r;
-    const sellers = G.sellerCount();
+    const sellers = G.asleep("stall") ? 0 : G.sellerCount();
     G.timers.serve -= dt;
     if (G.timers.serve > 0 || !s.stock.length || !(playerThere || sellers)) return;
     const c = G.customers.find((x) => x.state !== "leave");
@@ -1262,6 +1292,12 @@
       return { text: sel ? "Now tap where the " + sel.name + " should go" : "Drag a building to move it, or tap it and then tap a spot. It's free" };
     }
     if (G.foodArmed) return { text: "Click the water to throw the fish food" };
+    if (G.asleep("stall") && s.stock.length && G.customers.some((c) => c.state !== "leave") && dist(p.x, p.y, L.stallZone.x, L.stallZone.y) >= L.stallZone.r) {
+      return { text: "Your seller is asleep! Serve the customers at the stall", x: L.stallZone.x, y: L.stallZone.y + 15 };
+    }
+    if (G.asleep("shop") && s.cookedStock.length && G.diners.some((c) => c.state !== "leave") && dist(p.x, p.y, L.shopZone.x, L.shopZone.y) >= L.shopZone.r) {
+      return { text: "Your food seller is asleep! Serve the customers at the shop", x: L.shopZone.x, y: L.shopZone.y - 20 };
+    }
     const F = L.fire;
     if (s.fire && !s.hotBelt && s.cookedPile.length && G.bagCount() < G.bagCap()) return { text: "Cooked fish ready! Collect it at the fire", x: F.x, y: F.y - 40 };
     if (s.cookedBag.length) return { text: "Take your cooked fish to the Hot Food shop", x: L.shopZone.x, y: L.shopZone.y - 20 };

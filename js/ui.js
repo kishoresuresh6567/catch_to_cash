@@ -60,7 +60,7 @@
     };
     $("btnRetry").onclick = () => {
       $("failed").classList.add("hidden");
-      UI.showBriefing();
+      begin();
     };
     $("btnNext").onclick = () => {
       $("complete").classList.add("hidden");
@@ -113,7 +113,7 @@
     $("hud").classList.add("hidden");
     $("drawer").classList.remove("open");
     $("missionPanel").classList.remove("open");
-    $("failTitle").textContent = f.name;
+    $("failTitle").textContent = "Player Level " + f.level;
     $("failWhy").textContent = f.why;
     $("failStats").innerHTML = stat(f.sold.toLocaleString("en-US"), "fish sold") + stat(G.fmt(f.earned), "cash earned") + stat(mins + ":" + secs, "time");
     $("failed").classList.remove("hidden");
@@ -130,7 +130,7 @@
     $("missionTimer").classList.toggle("urgent", left <= 30);
     const goal = m.text + " · " + CTC.player.fmtValue(m, CTC.player.progress(m)) + "/" + CTC.player.fmtValue(m, m.n);
     if ($("timerGoal").textContent !== goal) $("timerGoal").textContent = goal;
-    const sad = "Unhappy customers: " + G.s.unhappy + "/" + G.unhappyLimit();
+    const sad = "Unhappy " + CTC.player.watchName(m) + " customers: " + G.s.unhappy + "/" + G.unhappyLimit();
     if ($("timerSad").textContent !== sad) $("timerSad").textContent = sad;
     $("timerSad").classList.toggle("danger", G.s.unhappy >= G.unhappyLimit() - 1);
   }
@@ -238,7 +238,7 @@
     const panelKey = P.data.index + ":" + key;
     if (panelKey === missionKey) return;
     missionKey = panelKey;
-    $("missionSummary").textContent = "Finish each mission before the timer runs out, or you'll have to start this place again. Missions earn XP, and each player level adds 0.5% to all fish prices (now +" + Math.round((P.priceBonus() - 1) * 1000) / 10 + "%). Your level stays with you in every place.";
+    $("missionSummary").textContent = "Finish each mission before the timer runs out, or you'll have to play your level again. Missions earn XP, and each player level adds 0.5% to all fish prices (now +" + Math.round((P.priceBonus() - 1) * 1000) / 10 + "%). Your level stays with you in every place.";
     const m = P.current();
     $("missionList").innerHTML = '<div class="mission active"><span class="num">' + (P.data.index + 1) + '</span><span class="txt">' + (m ? m.text + " (" + P.fmtValue(m, P.progress(m)) + "/" + P.fmtValue(m, m.n) + ")" : "No mission right now") + '</span><span class="xp">' + (m ? "+" + m.xp + " XP" : "") + "</span></div>"
       + '<p class="missionsLeft">' + P.data.index + " of " + P.count + " missions finished</p>";

@@ -52,10 +52,15 @@
     };
     $("btnBrief").onclick = () => {
       $("briefing").classList.add("hidden");
+      CTC.leap.stop();
       if (briefIsLevelUp) {
         $("hud").classList.remove("hidden");
         G.mode = "play";
       } else begin();
+    };
+    $("btnRetry").onclick = () => {
+      $("failed").classList.add("hidden");
+      UI.showBriefing();
     };
     $("btnNext").onclick = () => {
       $("complete").classList.add("hidden");
@@ -73,6 +78,7 @@
     G.on("toast", UI.toast);
     G.on("levelUp", UI.showLevelUp);
     G.on("complete", UI.showComplete);
+    G.on("failed", showFailed);
     G.on("coinArrived", () => {
       const el = $("cash");
       el.classList.remove("punch");
@@ -89,7 +95,7 @@
     showLevelBanner();
   }
 
-  // Pauses the game with the missions to do next on a card over the world.
+  // Pauses the game on a screen of its own: fish leaping into a river, and the missions to do next.
   function showMissionScreen(kicker, title, text, rows) {
     G.mode = "briefing";
     $("hud").classList.add("hidden");
@@ -98,7 +104,35 @@
     $("briefText").textContent = text;
     $("briefList").innerHTML = rows.map((r) => '<li class="' + (r.done ? "done" : "") + '"><b>' + r.name + "</b><span>" + r.value + "</span></li>").join("");
     $("briefing").classList.remove("hidden");
+    CTC.leap.start();
     CTC.audio.play("fishJump");
+  }
+
+  function showFailed(f) {
+    const mins = Math.floor(f.time / 60), secs = String(Math.floor(f.time % 60)).padStart(2, "0");
+    $("hud").classList.add("hidden");
+    $("drawer").classList.remove("open");
+    $("missionPanel").classList.remove("open");
+    $("failTitle").textContent = f.name;
+    $("failWhy").textContent = f.why;
+    $("failStats").innerHTML = stat(f.sold.toLocaleString("en-US"), "fish sold") + stat(G.fmt(f.earned), "cash earned") + stat(mins + ":" + secs, "time");
+    $("failed").classList.remove("hidden");
+  }
+
+  // The fixed corner display: time left on the mission, and unhappy customers so far.
+  function renderTimer() {
+    const m = CTC.player.current(), timed = m && !G.s.campaignDone;
+    $("missionTimer").classList.toggle("hidden", !timed);
+    if (!timed) return;
+    const left = Math.max(0, Math.ceil(m.left));
+    const clock = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+    if ($("timerClock").textContent !== clock) $("timerClock").textContent = clock;
+    $("missionTimer").classList.toggle("urgent", left <= 30);
+    const goal = m.text + " · " + CTC.player.fmtValue(m, CTC.player.progress(m)) + "/" + CTC.player.fmtValue(m, m.n);
+    if ($("timerGoal").textContent !== goal) $("timerGoal").textContent = goal;
+    const sad = "Unhappy customers: " + G.s.unhappy + "/" + G.unhappyLimit();
+    if ($("timerSad").textContent !== sad) $("timerSad").textContent = sad;
+    $("timerSad").classList.toggle("danger", G.s.unhappy >= G.unhappyLimit() - 1);
   }
 
   UI.showLevelUp = function (level) {
@@ -194,23 +228,20 @@
     const key = active.map((m) => m.id + ":" + Math.floor(P.progress(m))).join();
     if (key !== trackKey) {
       trackKey = key;
-      $("missionTracker").innerHTML = "<h4>Missions · " + P.data.done.length + "/" + P.missions.length + "</h4>" + (active.length ? active.map((m) => {
+      $("missionTracker").innerHTML = "<h4>Missions · " + P.data.index + "/" + P.count + "</h4>" + (active.length ? active.map((m) => {
         const have = P.progress(m);
         return '<div class="track"><span>' + P.fmtValue(m, have) + "/" + P.fmtValue(m, m.n) + "</span><b>" + m.text + '</b><div class="xpbar"><i style="width:' + (have / m.n) * 100 + '%"></i></div></div>';
       }).join("") : "<b>Every mission complete!</b>");
     }
 
     if (!$("missionPanel").classList.contains("open")) return;
-    const panelKey = P.data.done.length + ":" + key;
+    const panelKey = P.data.index + ":" + key;
     if (panelKey === missionKey) return;
     missionKey = panelKey;
-    $("missionSummary").textContent = "Finish missions to earn XP. Each player level adds 0.5% to all fish prices (now +" + Math.round((P.priceBonus() - 1) * 1000) / 10 + "%). This stays with you in every place.";
-    $("missionList").innerHTML = P.missions.map((m, i) => {
-      const done = P.isDone(m), on = P.data.active[m.id] !== undefined;
-      const state = done ? "done" : on ? "active" : "locked";
-      const note = on ? " (" + P.fmtValue(m, P.progress(m)) + "/" + P.fmtValue(m, m.n) + ")" : "";
-      return '<div class="mission ' + state + '"><span class="num">' + (i + 1) + '</span><span class="txt">' + m.text + note + '</span><span class="xp">' + (done ? "Done" : "+" + m.xp + " XP") + "</span></div>";
-    }).join("");
+    $("missionSummary").textContent = "Finish each mission before the timer runs out, or you'll have to start this place again. Missions earn XP, and each player level adds 0.5% to all fish prices (now +" + Math.round((P.priceBonus() - 1) * 1000) / 10 + "%). Your level stays with you in every place.";
+    const m = P.current();
+    $("missionList").innerHTML = '<div class="mission active"><span class="num">' + (P.data.index + 1) + '</span><span class="txt">' + (m ? m.text + " (" + P.fmtValue(m, P.progress(m)) + "/" + P.fmtValue(m, m.n) + ")" : "No mission right now") + '</span><span class="xp">' + (m ? "+" + m.xp + " XP" : "") + "</span></div>"
+      + '<p class="missionsLeft">' + P.data.index + " of " + P.count + " missions finished</p>";
   }
 
   function renderWood() {
@@ -410,6 +441,7 @@
     const shown = Math.floor(s.cash);
     if (shown !== lastCash) { $("cash").textContent = G.fmt(shown); lastCash = shown; }
     $("rate").textContent = G.fmt(G.earnRate()).replace(/^\$/, "$") + "/s";
+    renderTimer();
     const moving = G.moveMode && G.mode === "play";
     $("moveBar").classList.toggle("hidden", !moving);
     $("btnMove").classList.toggle("hidden", moving);

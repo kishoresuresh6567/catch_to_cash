@@ -17,7 +17,7 @@ Double-click `index.html`. It needs no install, server, or internet connection, 
 | Add sellers, upgrade the cart or belt | Blue arrow above them, or the Upgrades panel |
 | Chop wood (unlocks after hiring a stall seller) | Click a tree, then stand still next to it |
 | Hire woodcutters, up to 3 (unlocks after hiring a stall seller) | Green Hire button, then the blue arrow above the woodcutter, or the Upgrades panel |
-| Start or continue a place, or reach a new player level | The game pauses with a card over the world showing the missions to do next. Press Start |
+| Start or continue a place, or reach a new player level | The game pauses on a new screen with fish leaping into a river and the missions to do next. Press Start |
 | Build the fireplace | Stand on its pad with enough wood and cash |
 | Cook fish | Stand at the fire with raw fish; collect them when done |
 | Sell cooked food | Stand in the dashed circle at the Hot Food shop |
@@ -50,7 +50,16 @@ If you add a new game file, also add it to `FILES` in `sw.js`.
 
 ## Player level and missions
 
-Finishing missions earns XP and cash. There are 100 missions and 100 player levels, and they stay with you in every place. Edit them in `js/missions.js`.
+Finishing missions earns XP and cash. There are 100 missions and 100 player levels, and your level stays with you in every place. One mission runs at a time, and each is a job of 2 to 5 minutes, sized from how well you're doing when it starts. The timer at the top right shows the time left. Edit the kinds of mission in `js/missions.js`.
+
+## Failing a place
+
+You fail a place, and start it again from the beginning, if either of these happens:
+
+- A mission's timer runs out.
+- Too many customers walk away unhappy: 5 in Sunny Cove, 3 in Coral Lagoon, 1 in Frozen Fjord. Set this with `unhappyLimit` in `js/levels.js`.
+
+Customers start coming once your first fish reaches the stall, and Hot Food customers once your first cooked fish reaches the shop. Nobody joins a line unless there is enough food on the counter for them, and without a food seller the Hot Food line only forms while you are standing at the shop. People already waiting can still run out of patience. Your player level and building positions stay when you fail.
 
 ## Add a place
 

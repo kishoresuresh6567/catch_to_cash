@@ -11,6 +11,8 @@
 
    beltCosts: the price of each of the three belts in this place.
 
+   unhappyLimit: how many customers can walk away unhappy before the place is failed.
+
    Build types:
      rig      - net crane on the shore, drops fish in the crate automatically
      boat     - trawler that fishes at sea and unloads at the crate
@@ -136,6 +138,7 @@ CTC.LEVELS = [
     id: "sunny-cove",
     name: "Sunny Cove",
     tagline: "One net, one stall, big dreams.",
+    unhappyLimit: 5,
     costScale: 1,
     beltCosts: { chain: 220, feedBelt: 120, hotBelt: 150 },
     fishCount: 26,
@@ -170,6 +173,7 @@ CTC.LEVELS = [
     id: "coral-lagoon",
     name: "Coral Lagoon",
     tagline: "Sunset waters and pricier fish.",
+    unhappyLimit: 3,
     costScale: 5,
     beltCosts: { chain: 500, feedBelt: 600, hotBelt: 750 },
     fishCount: 28,
@@ -204,6 +208,7 @@ CTC.LEVELS = [
     id: "frozen-fjord",
     name: "Frozen Fjord",
     tagline: "Bitter cold, priceless catch.",
+    unhappyLimit: 1,
     costScale: 25,
     beltCosts: { chain: 2500, feedBelt: 3000, hotBelt: 3750 },
     fishCount: 30,

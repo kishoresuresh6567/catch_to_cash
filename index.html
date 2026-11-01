@@ -41,6 +41,13 @@
       <button id="btnMoveDone" class="btn big gold">Done moving</button>
     </div>
 
+    <div id="missionTimer" class="hidden">
+      <small>Mission time left</small>
+      <div id="timerClock"></div>
+      <p id="timerGoal"></p>
+      <p id="timerSad"></p>
+    </div>
+
     <div id="leftDock">
       <div id="leftPanel">
         <div id="buttons">
@@ -113,12 +120,24 @@
   </section>
 
   <section id="briefing" class="overlay hidden">
+    <canvas id="leapCanvas" width="1280" height="720"></canvas>
     <div class="card">
       <div id="briefKicker"></div>
       <h2 id="briefTitle"></h2>
       <p id="briefText"></p>
       <ol id="briefList"></ol>
       <button id="btnBrief" class="btn big gold">Start</button>
+    </div>
+  </section>
+
+  <section id="failed" class="overlay hidden">
+    <div class="card">
+      <div id="failKicker">Level failed</div>
+      <h2 id="failTitle"></h2>
+      <p id="failWhy"></p>
+      <div id="failStats"></div>
+      <p id="failNext">This place starts again from the beginning. You keep your player level.</p>
+      <button id="btnRetry" class="btn big gold">Try again</button>
     </div>
   </section>
 
@@ -305,6 +324,7 @@
 <script src="js/3d/people.js"></script>
 <script src="js/3d/models.js"></script>
 <script src="js/render.js"></script>
+<script src="js/leap.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 <script src="js/splash.js"></script>

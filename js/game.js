@@ -186,6 +186,7 @@
       catcherLv: {},
       carried: [], crate: [], stock: [], campaignDone: false,
       noHomes: true, beltsInPanel: true, wood: 0, fire: false, chain: false, feedBelt: false, hotBelt: false, hotSeller: false, fuel: 0, grill: [], cookedPile: [], cookedBag: [], cookedStock: [],
+      entryCash: cash || 0, entryUpg: {}, unhappy: 0, open: false, shopOpen: false,
       moved: {}, fence: false, kitchen: false, hotel: false, seaToast: false, seaBag: [], kitchenStock: [], hotelStock: []
     };
   }
@@ -272,13 +273,34 @@
     if (CTC.LEVELS[n]) {
       const save = freshSave(n, G.s.cash);
       // Your basket and fish food recipe stay with you between levels.
-      ["bag", "foodTime", "foodQuality"].forEach((k) => { save.upg[k] = G.s.upg[k]; });
+      ["bag", "foodTime", "foodQuality"].forEach((k) => { save.upg[k] = G.s.upg[k]; save.entryUpg[k] = G.s.upg[k]; });
+      CTC.player.newPlace();
       G.startLevel(save);
       G.save();
       G.mode = "play";
     }
     else { G.s.campaignDone = true; G.save(); G.mode = "play"; }
   };
+
+  // The place starts over with what the player arrived with. Player level and XP stay,
+  // and buildings keep the spots chosen for them. The fresh start is saved straight away,
+  // so reloading the page can't dodge a failure.
+  G.failLevel = function (why) {
+    if (G.mode !== "play" || G.s.campaignDone) return;
+    const old = G.s, name = G.level().name;
+    const save = freshSave(old.level, old.entryCash);
+    save.entryUpg = old.entryUpg;
+    Object.assign(save.upg, old.entryUpg);
+    save.moved = old.moved;
+    CTC.player.newPlace();
+    G.startLevel(save);
+    G.mode = "failed";
+    G.save();
+    CTC.audio.play("miss");
+    G.emit("failed", { name, why, sold: old.sold, earned: old.earned, time: old.time });
+  };
+
+  G.unhappyLimit = () => G.level().unhappyLimit;
 
   // Small fish crowd into big schools, while big fish keep to the small groups.
   const SCHOOL_SHARE = [0.45, 0.27, 0.16, 0.08, 0.04];
@@ -998,11 +1020,16 @@
       if (list[i].x > L.bounds.x1 + 100) list.splice(i, 1);
     }
     list.forEach((c) => {
+      if (G.mode !== "play") return; // The place just failed.
       if (c.state !== "leave") {
         c.tx = q.x + q.gap * idx; c.ty = q.y; idx++;
         if (dist(c.x, c.y, c.tx, c.ty) < FAR_WALK) c.patience -= dt;
         if (c.patience <= 0) {
           c.state = "leave"; c.mood = "sad";
+          G.s.unhappy++;
+          CTC.audio.play("miss");
+          if (G.s.unhappy >= G.unhappyLimit()) G.failLevel(G.s.unhappy + " unhappy " + (G.s.unhappy === 1 ? "customer" : "customers") + " walked away.");
+          if (G.mode !== "play") return;
           G.float(c.x, c.y - 70, c.cooked ? "No food?" : "No fish?", "#ffc9c2", 16);
         }
       } else { c.tx = L.bounds.x1 + 110; c.ty = c.cooked ? 712 : 690; }
@@ -1019,11 +1046,17 @@
     });
   }
 
+  const wanted = (line) => line.reduce((a, c) => a + c.want, 0);
+
   function updateCustomers(dt) {
     const q = L.queue;
+    // Customers start coming once the first fish reaches the stall.
+    if (G.s.stock.length || G.s.sold) G.s.open = true;
+    if (!G.s.open) return;
+    // Nobody joins the line unless there's enough fish on the stall for them.
     G.timers.customer -= dt;
     const waiting = G.customers.filter((c) => c.state !== "leave");
-    if (G.timers.customer <= 0 && waiting.length < q.max) {
+    if (G.timers.customer <= 0 && waiting.length < q.max && G.s.stock.length > wanted(waiting)) {
       G.customers.push(CTC.art.makeCustomer(L.bounds.x1 + 80, q.y + rand(-4, 4), 1 + Math.floor(Math.random() * 3)));
       G.timers.customer = G.customerEvery() * rand(0.8, 1.2);
     }
@@ -1034,8 +1067,14 @@
   function updateShop(dt) {
     const s = G.s, p = G.player, q = L.shopQueue, C = CTC.COOKING;
     if (!s.fire) return;
+    // The same for the shop, once the first cooked fish reaches it.
+    if (s.cookedStock.length) s.shopOpen = true;
+    if (!s.shopOpen) return;
+    // The same for the counter here. With no food seller, a line only forms while you're serving.
+    const line = G.diners.filter((c) => c.state !== "leave");
+    const serving = s.hotSeller || dist(p.x, p.y, L.shopZone.x, L.shopZone.y) < L.shopZone.r;
     G.timers.diner = (G.timers.diner || 0) - dt;
-    if (G.timers.diner <= 0 && G.diners.filter((c) => c.state !== "leave").length < q.max) {
+    if (G.timers.diner <= 0 && serving && s.cookedStock.length > wanted(line) && line.length < q.max) {
       const c = CTC.art.makeCustomer(L.bounds.x1 + 80, q.y, 1 + Math.floor(Math.random() * C.dinerMaxWant));
       c.cooked = true;
       G.diners.push(c);

@@ -8,7 +8,7 @@
   let renderer, baseDist = 1000, baseShift = 0;
   const ray = new THREE.Raycaster(), v = new THREE.Vector3();
   const frustum = new THREE.Frustum(), viewBox = new THREE.Matrix4(), viewSphere = new THREE.Sphere();
-  const SHADOW_EVERY = 3, SHADOW_EVERY_SLOW = 6;
+  const SHADOW_EVERY = 2, SHADOW_EVERY_SLOW = 4;
   let shadowNow = true, shadowWait = 0;
 
   const smooth = (a, b, x) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
@@ -31,7 +31,7 @@
 
   /* ---------- setup ---------- */
   St.init = function (canvas) {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: !St.low, powerPreference: "high-performance" });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = St.low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;

@@ -82,7 +82,7 @@
           float boots = step(vRest.y, uCuts.w);
           clothMask = max(max(shirt, pants), boots);
           float scale = 1.0 / uCuts.y;
-          weave = sin(vRest.y * scale * 900.0) * sin((vRest.x + vRest.z) * scale * 900.0) * 0.5 + 0.5;
+          weave = ${CTC.stage.low ? "0.5" : "sin(vRest.y * scale * 900.0) * sin((vRest.x + vRest.z) * scale * 900.0) * 0.5 + 0.5"};
           float folds = 0.86 + 0.14 * sin(vRest.y * scale * 46.0 + sin(vRest.x * scale * 30.0) * 2.0);
           vec3 fabric = uShirt * shirt + uPants * pants + uBoots * boots;
           // Belt, trouser cuff and a dark sole
@@ -171,8 +171,9 @@
     const mat = src.material.clone();
     mat.color.set(color).multiplyScalar(2.4);
     mat.side = THREE.DoubleSide;
+    if (CTC.stage.low) { mat.normalMap = null; mat.roughnessMap = null; mat.roughness = 0.85; }
     const mesh = new THREE.SkinnedMesh(src.geometry, mat);
-    mesh.castShadow = true;
+    mesh.castShadow = !CTC.stage.low; // On phones a body casts no shadow, so its hair mustn't either.
     const skel = new THREE.Skeleton(src.skeleton.bones.map((b) => bones[b.name]), src.skeleton.boneInverses);
     root.add(mesh);
     mesh.bind(skel, src.bindMatrix);
@@ -194,6 +195,12 @@
         o.castShadow = !CTC.stage.low || !!(opts && opts.basket);
         o.frustumCulled = false;
         o.material = o.material.clone();
+        // Fine surface detail sparkles on figures this small when they move, and phones show it most.
+        if (CTC.stage.low) {
+          o.material.normalMap = null;
+          o.material.roughnessMap = null;
+          o.material.roughness = 0.85;
+        }
         if (/Superhero/.test(o.material.name)) {
           dress(o.material, look, fit);
           if (!fit.restQ) restRotations(fit, o.skeleton.bones, o.skeleton.boneInverses);

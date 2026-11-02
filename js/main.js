@@ -240,8 +240,8 @@
     if (G.mode === "play") CTC.stage.noteFrame(now - last);
     last = now;
     if (G.mode !== "paused" && !CTC.manualStep && !portrait) G.update(dt);
-    // Behind a menu or a message, phones draw the world at half rate to stay cool.
-    const behind = CTC.stage.low && (portrait || (G.mode !== "play" && G.mode !== "sailing"));
+    // Behind a menu or a message, Android phones draw the world at half rate to stay cool.
+    const behind = CTC.stage.android && (portrait || (G.mode !== "play" && G.mode !== "sailing"));
     skipDraw = behind && !skipDraw;
     if (!skipDraw) {
       followPlayer();

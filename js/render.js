@@ -22,7 +22,7 @@
   };
 
   R.resize = function (scale) {
-    R.scale = Math.min(St.low ? 1.25 : 2.5, scale * (window.devicePixelRatio || 1));
+    R.scale = Math.min(St.android ? 1.25 : 2.5, scale * (window.devicePixelRatio || 1));
     canvas.width = Math.round(W * R.scale);
     canvas.height = Math.round(H * R.scale);
     St.resize(scale);
@@ -114,7 +114,7 @@
     a.group.rotation.y = a.yaw;
     People.play(a, o.anim, o.speed);
     // Off-screen people need neither drawing nor animating.
-    a.group.visible = St.inView(x, y, OFFSCREEN_MARGIN);
+    a.group.visible = (St.low && !St.android) || St.inView(x, y, OFFSCREEN_MARGIN);
     if (!a.group.visible) return a;
     if (a.axeMesh) a.axeMesh.visible = !!o.tool;
     // The clips have no sleeping pose. The mixer can skip unchanged bones, so the nod is undone first.
@@ -639,8 +639,8 @@
         c.restore();
       }
     });
-    // Phones skip the darkened corners: another full-screen layer to paint for little gain.
-    if (!vignette && !St.low) {
+    // Android phones skip the darkened corners: another full-screen layer to paint for little gain.
+    if (!vignette && !St.android) {
       const el = document.createElement("canvas");
       el.width = canvas.width;
       el.height = canvas.height;

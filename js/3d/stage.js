@@ -3,7 +3,9 @@
    3D position (x, height, y), and 36 units is about one metre. */
 (function () {
   const G = CTC.game, L = CTC.LAYOUT;
+  // low: any touch device. android: the lighter settings on top of that, for Android phones only.
   const St = (CTC.stage = { low: window.matchMedia("(pointer: coarse)").matches });
+  St.android = St.low && /Android/i.test(navigator.userAgent);
   const PITCH = 0.76, FOV = 30, PIER_Y = 13, LAND_Y = 10;
   let renderer, baseDist = 1000, baseShift = 0;
   const ray = new THREE.Raycaster(), v = new THREE.Vector3();
@@ -31,11 +33,11 @@
 
   /* ---------- setup ---------- */
   St.init = function (canvas) {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: !St.low || St.android, powerPreference: "high-performance" });
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = St.low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-    renderer.shadowMap.autoUpdate = !St.low; // Phones redraw shadows every few frames, see St.render.
+    renderer.shadowMap.type = St.android ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = !St.android; // Android phones redraw shadows every few frames, see St.render.
     St.renderer = renderer;
     const scene = (St.scene = new THREE.Scene());
     St.camera = new THREE.PerspectiveCamera(FOV, L.width / L.height, 20, 18000);
@@ -61,7 +63,7 @@
   const REAL_GAIN = 0.92; // A step down must bring frames to at most this share of their old time.
   let cssScale = 1, sharp = 0, settled = false, frameSum = 0, frames = 0, slowFor = 0, timeBefore = 0;
   function applySize() {
-    const ratio = Math.min(St.low ? 1 : 2, cssScale * (window.devicePixelRatio || 1)) * SHARPNESS[sharp];
+    const ratio = Math.min(St.android ? 1 : St.low ? 1.5 : 2, cssScale * (window.devicePixelRatio || 1)) * SHARPNESS[sharp];
     renderer.setPixelRatio(1);
     renderer.setSize(Math.round(L.width * ratio), Math.round(L.height * ratio), false);
     frameSum = frames = 0;
@@ -73,7 +75,7 @@
   St.sharpness = () => SHARPNESS[sharp];
   // Called each frame of play with how long the frame took.
   St.noteFrame = function (ms) {
-    if (settled || ms > 250) return;
+    if (settled || ms > 250 || (St.low && !St.android)) return;
     frameSum += ms;
     frames++;
     if (frameSum < 1000) return;
@@ -179,7 +181,7 @@
       vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       return mix(mix(hash21(i), hash21(i + vec2(1, 0)), f.x), mix(hash21(i + vec2(0, 1)), hash21(i + vec2(1, 1)), f.x), f.y);
     }
-    ${St.low ? "float fbm(vec2 p) { return vnoise(p) * 0.65 + vnoise(p * 2.1 + 7.0) * 0.35; }" : "float fbm(vec2 p) { return vnoise(p) * 0.55 + vnoise(p * 2.1 + 7.0) * 0.3 + vnoise(p * 4.3 + 3.0) * 0.15; }"}
+    ${St.android ? "float fbm(vec2 p) { return vnoise(p) * 0.65 + vnoise(p * 2.1 + 7.0) * 0.35; }" : "float fbm(vec2 p) { return vnoise(p) * 0.55 + vnoise(p * 2.1 + 7.0) * 0.3 + vnoise(p * 4.3 + 3.0) * 0.15; }"}
     float shoreAt(float y) { return 470.0 + 28.0 * sin(y * 0.012 + 1.0) + 12.0 * sin(y * 0.031); }`;
   St.NOISE = NOISE;
 
@@ -190,7 +192,7 @@
     uRock: { value: new THREE.Color() }, uPathY: { value: 0 }, uShopY: { value: 0 }, uPathX: { value: 0 }, uShopX: { value: 0 }, uShop: { value: 0 }
   };
   function buildTerrain() {
-    const geo = new THREE.PlaneGeometry(7200, 5800, St.low ? 150 : 400, St.low ? 120 : 320);
+    const geo = new THREE.PlaneGeometry(7200, 5800, St.android ? 150 : St.low ? 220 : 400, St.android ? 120 : St.low ? 180 : 320);
     geo.rotateX(-Math.PI / 2);
     geo.translate(700, 0, 360);
     const pos = geo.attributes.position;
@@ -212,7 +214,7 @@
         .replace("#include <color_fragment>", `#include <color_fragment>
           vec2 P = vW.xz;
           float d = P.x - shoreAt(P.y);
-          float n = fbm(P * 0.02), fine = vnoise(P * 0.55), grain = ${St.low ? "fine" : "vnoise(P * 2.3)"};
+          float n = fbm(P * 0.02), fine = vnoise(P * 0.55), grain = ${St.android ? "fine" : "vnoise(P * 2.3)"};
           vec3 sand = mix(uSand, uSandDark, n * 0.75 + grain * 0.2);
           float wet = 1.0 - smoothstep(4.0, 42.0, d + (n - 0.5) * 18.0);
           sand = mix(sand, uSandDark * 0.62, wet * 0.75);
@@ -254,7 +256,7 @@
         float wave(vec2 p) {
           return vnoise(p * 0.045 - uT * vec2(0.14, 0.05)) * 0.55
                + vnoise(p * 0.11 + uT * vec2(0.09, -0.16)) * 0.24
-               ${St.low ? "" : `+ vnoise(p * 0.018 + uT * vec2(0.10, 0.07)) * 1.0
+               ${St.android ? "" : `+ vnoise(p * 0.018 + uT * vec2(0.10, 0.07)) * 1.0
                + vnoise(p * 0.27 - uT * vec2(0.22, 0.13)) * 0.09`};
         }
         void main() {
@@ -359,7 +361,7 @@
     groundU.uPathX.value = L.queue.x - 110;
     groundU.uShopY.value = L.shopQueue.y + 28;
     groundU.uShopX.value = L.shopQueue.x - 90;
-    if (St.low && (shadowNow || ++shadowWait >= (sharp >= 2 ? SHADOW_EVERY_SLOW : SHADOW_EVERY))) {
+    if (St.android && (shadowNow || ++shadowWait >= (sharp >= 2 ? SHADOW_EVERY_SLOW : SHADOW_EVERY))) {
       renderer.shadowMap.needsUpdate = true;
       shadowNow = false;
       shadowWait = 0;

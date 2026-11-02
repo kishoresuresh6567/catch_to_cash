@@ -104,11 +104,11 @@
     return mats;
   }
 
-  // Phones: small parts stop casting shadows, which are drawn in a second pass.
+  // Android phones: small parts stop casting shadows, which are drawn in a second pass.
   const SMALL_PART = 14;
   const partScale = new THREE.Vector3();
   M.trimShadows = function (root) {
-    if (!St.low) return;
+    if (!St.android) return;
     root.updateWorldMatrix(true, true);
     root.traverse((o) => {
       if (!o.isMesh || !o.castShadow || o.isInstancedMesh) return;
@@ -277,7 +277,7 @@
     constructor(geo, mat, cap, shadow) {
       this.mesh = new THREE.InstancedMesh(geo, mat, cap);
       this.mesh.frustumCulled = false;
-      this.mesh.castShadow = !!shadow && !St.low;
+      this.mesh.castShadow = !!shadow && !St.android;
       this.cap = cap;
       this.n = 0;
       St.scene.add(this.mesh);
@@ -445,7 +445,7 @@
     const S = CTC.SEA.creatures;
     Object.keys(S).forEach((k) => {
       const g = creatureGeo(k, S[k]);
-      B.sea[k] = new Bank(g, new (St.low ? THREE.MeshStandardMaterial : THREE.MeshPhysicalMaterial)({ vertexColors: true, roughness: 0.38, ...(St.low ? {} : { clearcoat: 0.4 }), transparent: k === "jellyfish", opacity: k === "jellyfish" ? 0.75 : 1 }), 40, true);
+      B.sea[k] = new Bank(g, new (St.android ? THREE.MeshStandardMaterial : THREE.MeshPhysicalMaterial)({ vertexColors: true, roughness: 0.38, ...(St.android ? {} : { clearcoat: 0.4 }), transparent: k === "jellyfish", opacity: k === "jellyfish" ? 0.75 : 1 }), 40, true);
     });
   };
   M.beginBanks = function () {
@@ -750,7 +750,7 @@
     g.add(flames);
     const glow = new THREE.PointLight("#ff9440", 0, 260, 1.7);
     glow.position.set(0, 34, 0);
-    if (!St.low) g.add(glow); // A light in the scene adds work to every lit pixel.
+    if (!St.android) g.add(glow); // A light in the scene adds work to every lit pixel.
     Object.assign(g, { flames, flameMat, glow });
     return g;
   };
@@ -1130,7 +1130,7 @@
     };
     const rockMat = new THREE.MeshStandardMaterial({ map: materials().stone.map, roughness: 1, flatShading: true, color: T.decor === "pine" ? "#b8c6d2" : "#9a8f80" });
     const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), rockMat, 150);
-    rocks.castShadow = !St.low;
+    rocks.castShadow = !St.android;
     rocks.receiveShadow = true;
     const o = new THREE.Object3D();
     let n = 0;
@@ -1160,7 +1160,7 @@
     }
     const tuft = THREE.mergeGeometries(tuftParts);
     const snowy = T.decor === "pine";
-    const count = St.low ? 800 : 5200;
+    const count = St.android ? 800 : St.low ? 1500 : 5200;
     const grass = new THREE.InstancedMesh(tuft, new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), count);
     const col = new THREE.Color();
     n = 0;

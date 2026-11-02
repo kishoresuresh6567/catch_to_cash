@@ -22,7 +22,7 @@
   };
 
   R.resize = function (scale) {
-    R.scale = Math.min(2.5, scale * (window.devicePixelRatio || 1));
+    R.scale = Math.min(St.low ? 1.25 : 2.5, scale * (window.devicePixelRatio || 1));
     canvas.width = Math.round(W * R.scale);
     canvas.height = Math.round(H * R.scale);
     St.resize(scale);
@@ -82,10 +82,12 @@
       w.shop.add(plate);
       w.plates.push(plate);
     }
+    M.trimShadows(root);
     builtFor = lv.id;
   }
 
   /* ---------- people ---------- */
+  const OFFSCREEN_MARGIN = 110;
   function person(owner, look, x, y, o) {
     if (!People.ready) return null;
     let a = avatars.get(owner);
@@ -111,6 +113,9 @@
     a.group.position.set(x, a.group.position.y + (ground - a.group.position.y) * Math.min(1, R.dt * 14), y);
     a.group.rotation.y = a.yaw;
     People.play(a, o.anim, o.speed);
+    // Off-screen people need neither drawing nor animating.
+    a.group.visible = St.inView(x, y, OFFSCREEN_MARGIN);
+    if (!a.group.visible) return a;
     if (a.axeMesh) a.axeMesh.visible = !!o.tool;
     // The clips have no sleeping pose. The mixer can skip unchanged bones, so the nod is undone first.
     if (a.nodding) nod(a, -1);
@@ -348,6 +353,7 @@
         g = m.type === "boat" ? M.trawler(G.level().theme) : M.crane();
         w.root.add(g);
         w.machines.set(m, g);
+        M.trimShadows(g);
       }
       const pop = Art.popScale(m.pop);
       if (m.type === "rig") {
@@ -633,7 +639,8 @@
         c.restore();
       }
     });
-    if (!vignette) {
+    // Phones skip the darkened corners: another full-screen layer to paint for little gain.
+    if (!vignette && !St.low) {
       const el = document.createElement("canvas");
       el.width = canvas.width;
       el.height = canvas.height;
@@ -646,7 +653,7 @@
       x.fillRect(0, 0, W, H);
       vignette = el;
     }
-    c.drawImage(vignette, 0, 0, W, H);
+    if (vignette) c.drawImage(vignette, 0, 0, W, H);
     if (G.mode === "play" && !G.moveMode) drawGuideArrow(t);
     c.textAlign = "center";
     G.floats.forEach((f) => {

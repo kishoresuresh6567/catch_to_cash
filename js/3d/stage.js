@@ -7,6 +7,9 @@
   const PITCH = 0.76, FOV = 30, PIER_Y = 13, LAND_Y = 10;
   let renderer, baseDist = 1000, baseShift = 0;
   const ray = new THREE.Raycaster(), v = new THREE.Vector3();
+  const frustum = new THREE.Frustum(), viewBox = new THREE.Matrix4(), viewSphere = new THREE.Sphere();
+  const SHADOW_EVERY = 3, SHADOW_EVERY_SLOW = 6;
+  let shadowNow = true, shadowWait = 0;
 
   const smooth = (a, b, x) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
   St.smooth = smooth;
@@ -31,7 +34,8 @@
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !St.low, powerPreference: "high-performance" });
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = St.low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = !St.low; // Phones redraw shadows every few frames, see St.render.
     St.renderer = renderer;
     const scene = (St.scene = new THREE.Scene());
     St.camera = new THREE.PerspectiveCamera(FOV, L.width / L.height, 20, 18000);
@@ -50,10 +54,46 @@
     buildWater();
   };
 
-  St.resize = function (cssScale) {
-    const ratio = Math.min(St.low ? 1.5 : 2, cssScale * (window.devicePixelRatio || 1));
+  // Sharpness steps. A device that can't keep up drops down them until it can.
+  const SHARPNESS = [1, 0.85, 0.7, 0.6];
+  const SLOW_FRAME = 24; // Milliseconds. Averages above this are a struggle.
+  const SLOW_SECONDS = 3;
+  const REAL_GAIN = 0.92; // A step down must bring frames to at most this share of their old time.
+  let cssScale = 1, sharp = 0, settled = false, frameSum = 0, frames = 0, slowFor = 0, timeBefore = 0;
+  function applySize() {
+    const ratio = Math.min(St.low ? 1 : 2, cssScale * (window.devicePixelRatio || 1)) * SHARPNESS[sharp];
     renderer.setPixelRatio(1);
     renderer.setSize(Math.round(L.width * ratio), Math.round(L.height * ratio), false);
+    frameSum = frames = 0;
+  }
+  St.resize = function (scale) {
+    cssScale = scale;
+    applySize();
+  };
+  St.sharpness = () => SHARPNESS[sharp];
+  // Called each frame of play with how long the frame took.
+  St.noteFrame = function (ms) {
+    if (settled || ms > 250) return;
+    frameSum += ms;
+    frames++;
+    if (frameSum < 1000) return;
+    const avg = frameSum / frames;
+    frameSum = frames = 0;
+    // No gain means something else is the limit, such as a battery saver capping the frame rate.
+    if (timeBefore && avg > timeBefore * REAL_GAIN) {
+      sharp--;
+      settled = true;
+      applySize();
+      return;
+    }
+    timeBefore = 0;
+    slowFor = avg > SLOW_FRAME ? slowFor + 1 : 0;
+    if (slowFor >= SLOW_SECONDS && sharp < SHARPNESS.length - 1) {
+      timeBefore = avg;
+      slowFor = 0;
+      sharp++;
+      applySize();
+    }
   };
 
   function aimCamera(dist, tx, tz) {
@@ -90,15 +130,23 @@
     }
     const sc = St.sun.shadow.camera, half = Math.max(420, 1280 / cam.z);
     if (sc.right !== half) {
+      shadowNow = true;
       sc.left = -half; sc.right = half;
       sc.top = half; sc.bottom = -half;
       sc.updateProjectionMatrix();
     }
     const snap = 32;
     const sx = Math.round((cam.x + L.width / (2 * cam.z)) / snap) * snap, sz = Math.round((cam.y + L.height / (2 * cam.z)) / snap) * snap;
+    if (St.sun.target.position.x !== sx || St.sun.target.position.z !== sz) shadowNow = true;
     St.sun.target.position.set(sx, 0, sz);
     if (St.sunDir) St.sun.position.set(sx + St.sunDir[0] * 3, St.sunDir[1] * 3, sz + St.sunDir[2] * 3);
     St.sun.target.updateMatrixWorld();
+    frustum.setFromProjectionMatrix(viewBox.multiplyMatrices(St.camera.projectionMatrix, St.camera.matrixWorldInverse));
+  };
+  St.inView = function (x, y, radius) {
+    viewSphere.center.set(x, St.groundY(x, y), y);
+    viewSphere.radius = radius;
+    return frustum.intersectsSphere(viewSphere);
   };
 
   // Map point and height to a position on the 1280x720 stage.
@@ -131,7 +179,7 @@
       vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       return mix(mix(hash21(i), hash21(i + vec2(1, 0)), f.x), mix(hash21(i + vec2(0, 1)), hash21(i + vec2(1, 1)), f.x), f.y);
     }
-    float fbm(vec2 p) { return vnoise(p) * 0.55 + vnoise(p * 2.1 + 7.0) * 0.3 + vnoise(p * 4.3 + 3.0) * 0.15; }
+    ${St.low ? "float fbm(vec2 p) { return vnoise(p) * 0.65 + vnoise(p * 2.1 + 7.0) * 0.35; }" : "float fbm(vec2 p) { return vnoise(p) * 0.55 + vnoise(p * 2.1 + 7.0) * 0.3 + vnoise(p * 4.3 + 3.0) * 0.15; }"}
     float shoreAt(float y) { return 470.0 + 28.0 * sin(y * 0.012 + 1.0) + 12.0 * sin(y * 0.031); }`;
   St.NOISE = NOISE;
 
@@ -142,7 +190,7 @@
     uRock: { value: new THREE.Color() }, uPathY: { value: 0 }, uShopY: { value: 0 }, uPathX: { value: 0 }, uShopX: { value: 0 }, uShop: { value: 0 }
   };
   function buildTerrain() {
-    const geo = new THREE.PlaneGeometry(7200, 5800, St.low ? 220 : 400, St.low ? 180 : 320);
+    const geo = new THREE.PlaneGeometry(7200, 5800, St.low ? 150 : 400, St.low ? 120 : 320);
     geo.rotateX(-Math.PI / 2);
     geo.translate(700, 0, 360);
     const pos = geo.attributes.position;
@@ -164,7 +212,7 @@
         .replace("#include <color_fragment>", `#include <color_fragment>
           vec2 P = vW.xz;
           float d = P.x - shoreAt(P.y);
-          float n = fbm(P * 0.02), fine = vnoise(P * 0.55), grain = vnoise(P * 2.3);
+          float n = fbm(P * 0.02), fine = vnoise(P * 0.55), grain = ${St.low ? "fine" : "vnoise(P * 2.3)"};
           vec3 sand = mix(uSand, uSandDark, n * 0.75 + grain * 0.2);
           float wet = 1.0 - smoothstep(4.0, 42.0, d + (n - 0.5) * 18.0);
           sand = mix(sand, uSandDark * 0.62, wet * 0.75);
@@ -204,10 +252,10 @@
         uniform vec3 uDeep, uMid, uShallow, uFoam, uSky, uSunDir, uSunCol, uFog;
         ${NOISE}
         float wave(vec2 p) {
-          return vnoise(p * 0.018 + uT * vec2(0.10, 0.07)) * 1.0
-               + vnoise(p * 0.045 - uT * vec2(0.14, 0.05)) * 0.55
+          return vnoise(p * 0.045 - uT * vec2(0.14, 0.05)) * 0.55
                + vnoise(p * 0.11 + uT * vec2(0.09, -0.16)) * 0.24
-               + vnoise(p * 0.27 - uT * vec2(0.22, 0.13)) * 0.09;
+               ${St.low ? "" : `+ vnoise(p * 0.018 + uT * vec2(0.10, 0.07)) * 1.0
+               + vnoise(p * 0.27 - uT * vec2(0.22, 0.13)) * 0.09`};
         }
         void main() {
           vec2 P = vW.xz;
@@ -311,6 +359,11 @@
     groundU.uPathX.value = L.queue.x - 110;
     groundU.uShopY.value = L.shopQueue.y + 28;
     groundU.uShopX.value = L.shopQueue.x - 90;
+    if (St.low && (shadowNow || ++shadowWait >= (sharp >= 2 ? SHADOW_EVERY_SLOW : SHADOW_EVERY))) {
+      renderer.shadowMap.needsUpdate = true;
+      shadowNow = false;
+      shadowWait = 0;
+    }
     renderer.render(St.scene, St.camera);
   };
 })();

@@ -234,13 +234,19 @@
   CTC.ui.init();
   fit();
 
-  let last = performance.now();
+  let last = performance.now(), skipDraw = false;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
+    if (G.mode === "play") CTC.stage.noteFrame(now - last);
     last = now;
     if (G.mode !== "paused" && !CTC.manualStep && !portrait) G.update(dt);
-    followPlayer();
-    CTC.render.draw();
+    // Behind a menu or a message, phones draw the world at half rate to stay cool.
+    const behind = CTC.stage.low && (portrait || (G.mode !== "play" && G.mode !== "sailing"));
+    skipDraw = behind && !skipDraw;
+    if (!skipDraw) {
+      followPlayer();
+      CTC.render.draw();
+    }
     CTC.ui.update();
     requestAnimationFrame(frame);
   }
